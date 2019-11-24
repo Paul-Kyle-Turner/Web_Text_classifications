@@ -26,7 +26,7 @@ def gather_news_content(database_path):
     cursor = connect.cursor()
 
     cursor.execute('''
-    SELECT title, description, content, published_at FROM documents;
+    SELECT query, title, description, content, published_at FROM documents;
     ''')
     news_data = cursor.fetchall()
     # data is returned in a list of tuples
@@ -40,13 +40,18 @@ def gather_news_content(database_path):
 
 def replacer(list_data):
     # for each piece of content within the list_data
-    i = 0
     total_list = []
     for content in list_data:
         content = list(content)
+
+        # remove query from data so that all of the
+        query = content[0]
+        del content[0]
+
         # remove the date from each of the pieces of content
         date = content[-1]
         del content[-1]
+
         # for each piece of information within the content of each document
         temp_collect = []
         temp_last = ''
@@ -60,13 +65,15 @@ def replacer(list_data):
                 else:
                     if temp_last != end_string_list[0]:
                         temp_collect.append(end_string_list[0])
-        content = [' '.join(temp_collect), date]
-        i += 1
+        content = [query, ' '.join(temp_collect), date]
         total_list.append(content)
     return total_list
 
 
 if __name__ == '__main__':
-    # news data is gathered in the format [content, date_published], where content is title, description, content.
+    # news data is gathered in the format [query, content, date_published],
+    # where content is title, description, content.
+    # There exist data which the query is None, this data was collected with the use of an old version of searchthenews
+    # This can be used for another Y_test set for determining which class of news it was pulled from
     news_data = gather_news_content('news.db')
 

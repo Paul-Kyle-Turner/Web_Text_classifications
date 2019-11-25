@@ -5,13 +5,7 @@ import sqlite3
 import re
 from os import listdir
 from os.path import isfile, join
-
-# stock data will remain within a dataframe of col stocks, end of day, end of day increase decrease
-# news information will be gathered from the news.db
-#                   NEW FUNCTION GATHER CONTENT INFORMATION
-#                   NEW FUNCTION COMBINE DESCRIPTION
-def gather_data():
-    print('working')
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 
 # python array of files by pycruft, stackoverflow
@@ -61,7 +55,10 @@ def gather_news_content(database_path):
 
 def replacer(list_data):
     # for each piece of content within the list_data
-    total_list = []
+    query_list = []
+    dates_list = []
+    content_list = []
+
     for content in list_data:
         content = list(content)
 
@@ -76,7 +73,7 @@ def replacer(list_data):
         # for each piece of information within the content of each document
         temp_collect = []
         temp_last = ''
-        for index in range(len(content) - 1):
+        for index in range(len(content)):
             if content[index] is not None:
 
                 # replaces certain parts of the content of the data for better readability
@@ -85,15 +82,13 @@ def replacer(list_data):
                 end_string_list = content[index].split('[')
 
                 # checks to see if the description is the same as the content of the file.
-                if index == 1 and index != 0:
-                    temp_last = content[index]
-                else:
-                    if temp_last != end_string_list[0]:
-                        temp_collect.append(end_string_list[0])
+                temp_collect.append(end_string_list[0])
 
-        content = [query, ' '.join(temp_collect), date]
-        total_list.append(content)
-    return total_list
+        query_list.append(query)
+        dates_list.append(date)
+        content_list.append(' '.join(temp_collect))
+
+    return query_list, dates_list, content_list
 
 
 if __name__ == '__main__':
@@ -101,7 +96,15 @@ if __name__ == '__main__':
     # where content is title, description, content.
     # There exist data which the query is None, this data was collected with the use of an old version of searchthenews
     # This can be used for another Y_test set for determining which class of news it was pulled from
-    news_data = gather_news_content('news.db')
+    query_list, dates_list, content_list = gather_news_content('news.db')
+
+    # create a tfidf of the content_list
+    tfidf_vector = TfidfVectorizer()
+    tfidf_vector.fit(content_list)
+    tfidf_content = tfidf_vector.transform(content_list)
+
+    # Stocks information
+
 
 
 

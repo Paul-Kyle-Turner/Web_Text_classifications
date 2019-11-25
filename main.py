@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import math
 import datetime
-import pytz
 import sqlite3
 import re
 from os import listdir
@@ -24,7 +23,6 @@ def gather_stocks_from_dir(path):
             dataframe_stocks_complete = dataframe_stocks_complete.append(temp_stocks_dataframe)
 
     return dataframe_stocks_complete
-
 
 
 def gather_data_from_stocks():
@@ -116,6 +114,12 @@ def replacer(list_data):
 
     return query_list, dates_list, content_list
 
+# I made some blank functions for lama to create
+def data_before_date(dataframe, date):
+    return dataframe, date
+
+def tfidf_data_before_date(data_to_be_tfidf, date):
+    return tfidf
 
 if __name__ == '__main__':
     # news data is gathered in the format [query, content, date_published],
@@ -124,6 +128,7 @@ if __name__ == '__main__':
     # This can be used for another Y_test set for determining which class of news it was pulled from
     query_list, dates_list, content_list = gather_news_content('news.db')
 
+    # convert string to datetime
     for index_in_date_list in range(len(dates_list)):
         dates_list[index_in_date_list] = datetime.datetime.strptime(dates_list[index_in_date_list], '%Y-%m-%dT%H:%M:%S')
 

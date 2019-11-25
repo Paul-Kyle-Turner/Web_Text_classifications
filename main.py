@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import math
+import datetime
+import pytz
 import sqlite3
 import re
 from os import listdir
@@ -104,6 +106,10 @@ def replacer(list_data):
                 # checks to see if the description is the same as the content of the file.
                 temp_collect.append(end_string_list[0])
 
+        # remove excess date information
+        if len(date) >= 20:
+            date = date[0:19]
+
         query_list.append(query)
         dates_list.append(date)
         content_list.append(' '.join(temp_collect))
@@ -116,17 +122,21 @@ if __name__ == '__main__':
     # where content is title, description, content.
     # There exist data which the query is None, this data was collected with the use of an old version of searchthenews
     # This can be used for another Y_test set for determining which class of news it was pulled from
-
     query_list, dates_list, content_list = gather_news_content('news.db')
 
-    # create a tfidf of the content_list
+    for index_in_date_list in range(len(dates_list)):
+        dates_list[index_in_date_list] = datetime.datetime.strptime(dates_list[index_in_date_list], '%Y-%m-%dT%H:%M:%S')
 
-    tfidf_vector = TfidfVectorizer()
-    tfidf_vector.fit(content_list)
-    tfidf_content = tfidf_vector.transform(content_list)
+    content_dataframe = pd.DataFrame([query_list, dates_list, content_list]).transpose()
+    content_dataframe.columns = ['query', 'date', 'content']
+    content_dataframe['date'] = pd.to_datetime(content_dataframe['date'])
 
     # Stocks information
     stocks = gather_data_from_stocks()
 
+    # create a tfidf of the content_list
+    tfidf_vector = TfidfVectorizer()
+    tfidf_vector.fit(content_list)
+    tfidf_content = tfidf_vector.transform(content_list)
 
 

@@ -136,7 +136,7 @@ def preprocess_content_for_gensim(content_list):
     return content_list
 
 
-# return dataframe of all rows with date less then the @param date
+# return dataframe of all rows with date less than the param date
 def data_before_date(dataframe, date):
     beforedataframe = pd.DataFrame()
     for index, row in dataframe.iterrows():
@@ -144,6 +144,13 @@ def data_before_date(dataframe, date):
             beforedataframe = beforedataframe.append(row)
     return beforedataframe, date
 
+# return dataframe of all rows with date more than or equal to the param date
+def data_after_date(dataframe, date):
+    afterdataframe = pd.DataFrame()
+    for index, row in dataframe.iterrows():
+        if row['date'] >= date:
+            afterdataframe = afterdataframe.append(row)
+    return afterdataframe, date
 
 # Splits the dataset for training and testing by the input date.
 def tfidf_data_before_date(data_to_be_tfidf, date):

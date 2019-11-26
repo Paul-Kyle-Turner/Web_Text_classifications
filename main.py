@@ -16,7 +16,6 @@ from gensim.parsing.preprocessing import preprocess_documents
 from gensim.utils import simple_preprocess
 from gensim.models import Word2Vec
 
-import tensorflow as tf
 
 # python array of files by pycruft, stackoverflow
 # this function concats the stock data from different sources within a path directory
@@ -139,10 +138,10 @@ def preprocess_content_for_gensim(content_list):
 
 # return dataframe of all rows with date less then the @param date
 def data_before_date(dataframe, date):
-    beforedataframe = pd.DataFrame
+    beforedataframe = pd.DataFrame()
     for index, row in dataframe.iterrows():
         if row['date'] < date:
-            beforedataframe.append(row)
+            beforedataframe = beforedataframe.append(row)
     return beforedataframe, date
 
 
@@ -152,9 +151,9 @@ def tfidf_data_before_date(data_to_be_tfidf, date):
     tfidf_test_set = []
     for index, row in data_to_be_tfidf.iterrows():
         if row['date'] < date:
-            data_to_be_tfidf['content'].append(tfidf_training_set)
+            tfidf_training_set.append(row['content'])
         else:
-            data_to_be_tfidf['content'].append(tfidf_test_set)
+            tfidf_test_set.append(row['content'])
     return tfidf_training_set, tfidf_test_set
 
 
@@ -177,7 +176,10 @@ if __name__ == '__main__':
     #tfidf_vector.fit(content_list)
     #tfidf_content = tfidf_vector.transform(content_list)
 
-    print('gensim')
+    (test, yeet) = tfidf_data_before_date(content_dataframe, datetime.datetime(2019, 11, 1))
+    print(test)
+    print(yeet)
+    #print(stocks)
 
     gensim_content_list = preprocess_content_for_gensim(content_list)
     word_to_vec_model = Word2Vec(gensim_content_list, min_count=1, window=3)

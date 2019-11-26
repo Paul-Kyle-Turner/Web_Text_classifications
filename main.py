@@ -8,15 +8,22 @@ from os import listdir
 from os.path import isfile, join
 import warnings
 
+from matplotlib import pyplot as plt
+
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.manifold import TSNE
 
 from nltk.corpus import stopwords
 from gensim.parsing.preprocessing import remove_stopwords
 from gensim.parsing.preprocessing import preprocess_documents
 from gensim.utils import simple_preprocess
+from gensim.test.utils import get_tmpfile
+from gensim.models import Phrases
 from gensim.models import Word2Vec
+from gensim.models import KeyedVectors
 
 import tensorflow as tf
+
 
 # python array of files by pycruft, stackoverflow
 # this function concats the stock data from different sources within a path directory
@@ -104,7 +111,6 @@ def replacer(list_data):
         temp_last = ''
         for index in range(len(content)):
             if content[index] is not None:
-
                 # replaces certain parts of the content of the data for better readability
                 content[index] = re.sub(r'\s+', ' ', content[index])
                 content[index] = re.sub(r'<[/]*\w>', '', content[index])
@@ -137,9 +143,14 @@ def preprocess_content_for_gensim(content_list):
     return content_list
 
 
+def tsne_plot(model, word, perplexity):
+    tsne = TSNE(n_components=2, n_iter=10000, perplexity=perplexity, n_iter_without_progress=500)
+
+
 # I made some blank functions for lama to create
 def data_before_date(dataframe, date):
     return dataframe, date
+
 
 def tfidf_data_before_date(data_to_be_tfidf, date):
     tfidf_training_set = []
@@ -162,17 +173,20 @@ if __name__ == '__main__':
     stocks = gather_data_from_stocks()
 
     # create a tfidf of the content_list
-    #tfidf_vector = TfidfVectorizer()
-    #tfidf_vector.fit(content_list)
-    #tfidf_content = tfidf_vector.transform(content_list)
-
-    print('gensim')
+    # tfidf_vector = TfidfVectorizer()
+    # tfidf_vector.fit(content_list)
+    # tfidf_content = tfidf_vector.transform(content_list)
 
     gensim_content_list = preprocess_content_for_gensim(content_list)
-    word_to_vec_model = Word2Vec(gensim_content_list, min_count=1, window=3)
+    bigrams = Phrases(gensim_content_list)
+    word_to_vec_model = Word2Vec(bigrams[gensim_content_list], min_count=1, window=3, size=300)
+    file = get_tmpfile('content_word2vec.p')
+    word_to_vec_model.save(file)
+    #word_to_vec_model = KeyedVectors.load_word2vec_format(file)
 
+    print(word_to_vec_model.vector_size)
 
+    close_words = word_to_vec_model.similar_by_word('intel')
+    print(close_words)
 
-
-
-
+    #tsne_plot(word_to_vec_model, 'intel', 100)

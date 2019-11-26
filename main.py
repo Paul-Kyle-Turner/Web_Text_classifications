@@ -137,13 +137,24 @@ def preprocess_content_for_gensim(content_list):
     return content_list
 
 
-# I made some blank functions for lama to create
+# return dataframe of all rows with date less then the @param date
 def data_before_date(dataframe, date):
-    return dataframe, date
+    beforedataframe = pd.DataFrame
+    for index, row in dataframe.iterrows():
+        if row['date'] < date:
+            beforedataframe.append(row)
+    return beforedataframe, date
 
+
+# Splits the dataset for training and testing by the input date.
 def tfidf_data_before_date(data_to_be_tfidf, date):
     tfidf_training_set = []
     tfidf_test_set = []
+    for index, row in data_to_be_tfidf.iterrows():
+        if row['date'] < date:
+            data_to_be_tfidf['content'].append(tfidf_training_set)
+        else:
+            data_to_be_tfidf['content'].append(tfidf_test_set)
     return tfidf_training_set, tfidf_test_set
 
 

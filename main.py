@@ -112,6 +112,7 @@ def replacer(list_data):
                 # replaces certain parts of the content of the data for better readability
                 content[index] = re.sub(r'\s+', ' ', content[index])
                 content[index] = re.sub(r'<[/]*\w>', '', content[index])
+                content[index] = re.sub(r'[?]|[!]|[,]', '', content[index])
                 end_string_list = content[index].split('[')
 
                 # checks to see if the description is the same as the content of the file.

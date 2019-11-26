@@ -6,8 +6,17 @@ import sqlite3
 import re
 from os import listdir
 from os.path import isfile, join
+import warnings
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+from nltk.corpus import stopwords
+from gensim.parsing.preprocessing import remove_stopwords
+from gensim.parsing.preprocessing import preprocess_documents
+from gensim.utils import simple_preprocess
+from gensim.models import Word2Vec
+
+import tensorflow as tf
 
 # python array of files by pycruft, stackoverflow
 # this function concats the stock data from different sources within a path directory
@@ -102,7 +111,7 @@ def replacer(list_data):
                 end_string_list = content[index].split('[')
 
                 # checks to see if the description is the same as the content of the file.
-                temp_collect.append(end_string_list[0])
+                temp_collect.append(end_string_list[0].lower())
 
         # remove excess date information
         if len(date) >= 20:
@@ -112,36 +121,58 @@ def replacer(list_data):
         dates_list.append(date)
         content_list.append(' '.join(temp_collect))
 
+    # convert string to datetime
+    for index_in_date_list in range(len(dates_list)):
+        dates_list[index_in_date_list] = datetime.datetime.strptime(dates_list[index_in_date_list], '%Y-%m-%dT%H:%M:%S')
+
     return query_list, dates_list, content_list
+
+
+def preprocess_content_for_gensim(content_list):
+    for ind in range(len(content_list)):
+        temp_store = remove_stopwords(content_list[ind])
+        temp_store = temp_store.replace('-', '').split(' ')
+        content_list[ind] = temp_store
+
+    return content_list
+
 
 # I made some blank functions for lama to create
 def data_before_date(dataframe, date):
     return dataframe, date
 
 def tfidf_data_before_date(data_to_be_tfidf, date):
-    return tfidf
+    tfidf_training_set = []
+    tfidf_test_set = []
+    return tfidf_training_set, tfidf_test_set
+
 
 if __name__ == '__main__':
+    warnings.filterwarnings("ignore")
     # news data is gathered in the format [query, content, date_published],
     # where content is title, description, content.
     # There exist data which the query is None, this data was collected with the use of an old version of searchthenews
     # This can be used for another Y_test set for determining which class of news it was pulled from
     query_list, dates_list, content_list = gather_news_content('news.db')
 
-    # convert string to datetime
-    for index_in_date_list in range(len(dates_list)):
-        dates_list[index_in_date_list] = datetime.datetime.strptime(dates_list[index_in_date_list], '%Y-%m-%dT%H:%M:%S')
-
     content_dataframe = pd.DataFrame([query_list, dates_list, content_list]).transpose()
     content_dataframe.columns = ['query', 'date', 'content']
-    content_dataframe['date'] = pd.to_datetime(content_dataframe['date'])
 
     # Stocks information
     stocks = gather_data_from_stocks()
 
     # create a tfidf of the content_list
-    tfidf_vector = TfidfVectorizer()
-    tfidf_vector.fit(content_list)
-    tfidf_content = tfidf_vector.transform(content_list)
+    #tfidf_vector = TfidfVectorizer()
+    #tfidf_vector.fit(content_list)
+    #tfidf_content = tfidf_vector.transform(content_list)
+
+    print('gensim')
+
+    gensim_content_list = preprocess_content_for_gensim(content_list)
+    word_to_vec_model = Word2Vec(gensim_content_list, min_count=1, window=3)
+
+
+
+
 
 

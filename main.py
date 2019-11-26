@@ -22,7 +22,6 @@ from gensim.models import Phrases
 from gensim.models import Word2Vec
 from gensim.models import KeyedVectors
 
-import tensorflow as tf
 
 
 # python array of files by pycruft, stackoverflow
@@ -142,19 +141,34 @@ def preprocess_content_for_gensim(content_list):
 
     return content_list
 
-
 def tsne_plot(model, word, perplexity):
     tsne = TSNE(n_components=2, n_iter=10000, perplexity=perplexity, n_iter_without_progress=500)
 
-
-# I made some blank functions for lama to create
+# return dataframe of all rows with date less than the param date
 def data_before_date(dataframe, date):
-    return dataframe, date
+    beforedataframe = pd.DataFrame()
+    for index, row in dataframe.iterrows():
+        if row['date'] < date:
+            beforedataframe = beforedataframe.append(row)
+    return beforedataframe, date
 
+# return dataframe of all rows with date more than or equal to the param date
+def data_after_date(dataframe, date):
+    afterdataframe = pd.DataFrame()
+    for index, row in dataframe.iterrows():
+        if row['date'] >= date:
+            afterdataframe = afterdataframe.append(row)
+    return afterdataframe, date
 
+# Splits the dataset for training and testing by the input date.
 def tfidf_data_before_date(data_to_be_tfidf, date):
     tfidf_training_set = []
     tfidf_test_set = []
+    for index, row in data_to_be_tfidf.iterrows():
+        if row['date'] < date:
+            tfidf_training_set.append(row['content'])
+        else:
+            tfidf_test_set.append(row['content'])
     return tfidf_training_set, tfidf_test_set
 
 
@@ -173,9 +187,13 @@ if __name__ == '__main__':
     stocks = gather_data_from_stocks()
 
     # create a tfidf of the content_list
+
     # tfidf_vector = TfidfVectorizer()
     # tfidf_vector.fit(content_list)
     # tfidf_content = tfidf_vector.transform(content_list)
+
+
+    tfidf_training_set, tfidf_test_set = tfidf_data_before_date(content_dataframe, datetime.datetime(2019, 11, 1))
 
     gensim_content_list = preprocess_content_for_gensim(content_list)
     bigrams = Phrases(gensim_content_list)

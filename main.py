@@ -4,11 +4,18 @@ import math
 import datetime
 import sqlite3
 import re
+import os
 from os import listdir
 from os.path import isfile, join
 import warnings
 
 from matplotlib import pyplot as plt
+
+import tensorflow as tf
+from tensorflow.python.keras.preprocessing.text import Tokenizer
+from tensorflow.python.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Embedding, GRU
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.manifold import TSNE
@@ -62,7 +69,7 @@ def gather_data_from_stocks():
     #   This will make a single wrong value where the change of symbol is
     y_class_stocks['updown'] = close_updown
 
-    return y_class_stocks
+    return y_class_stocks.reset_index()
 
 
 # gather data from the sqlite3 database into a list for easier usage
@@ -141,7 +148,7 @@ def preprocess_content_for_gensim(content_list):
     return content_list
 
 
-def tsne_plot(model, word, perplexity):
+def tsne_plot(model, word, perplexity, quit_words):
 
     # Gather the closest words a few times to have some data to look at
     close_words = model.similar_by_word(word)
@@ -178,8 +185,12 @@ def tsne_plot(model, word, perplexity):
 
     plt.scatter(x_coordinates, y_coordinates)
 
+    i = 0
     for label, x_co, y_co in zip(word_labels, x_coordinates, y_coordinates):
         plt.annotate(label, xy=(x_co, y_co), xytext=(0, 0), textcoords='offset points')
+        if i > quit_words:
+            break
+        i += 1
     plt.xlim(min(x_coordinates) + 0.5, max(x_coordinates) + 0.5)
     plt.ylim(min(y_coordinates) + 0.5, max(y_coordinates) + 0.5)
     plt.show()
@@ -230,7 +241,7 @@ def tfidf_data_before_date(data_to_be_tfidf, date):
 def create_gensim_word_2_vec_model(content_list):
     gensim_content_list = preprocess_content_for_gensim(content_list)
     bigrams = Phrases(gensim_content_list)
-    word_to_vec_model = Word2Vec(gensim_content_list, min_count=1, window=3, size=300)
+    word_to_vec_model = Word2Vec(bigrams[gensim_content_list], min_count=1, window=3, size=300)
     return word_to_vec_model
 
 
@@ -239,32 +250,79 @@ def load_gensim_word_2_vec_model(path):
     return Word2Vec.load(file)
 
 
+# training and testing data is assumed to be in a list of values
+# df['content'] is the data
+def keras_word_embedding(training_data, testing_data, training_class, testing_class,
+                         embedding_dimension=None, model=None):
+    # create tokenizer to generate training and testing tokens for later use
+    tokens = Tokenizer()
+    total_text = training_data + testing_data
+    tokens.fit_on_texts(total_text)
+
+    # get the max len of any of the string such that they can be padded with zeros
+    max_token_length = max([len(strings.split()) for strings in total_text])
+
+    # num words in the vocab of the corpus
+    vocab_size = len(tokens.word_index) + 1
+
+    # convert training and testing strings to tokens
+    training_data_tokens = tokens.texts_to_sequences(training_data)
+    testing_data_tokens = tokens.texts_to_sequences(testing_data)
+
+    # pads the training and testing data with zeros to make all the same length
+    # pads with zeros at the end of the data
+    training_data_tokens_pad = pad_sequences(training_data_tokens, maxlen=max_token_length, padding='post')
+    testing_data_tokens_pad = pad_sequences(testing_data_tokens, maxlen=max_token_length, padding='post')
+
+    if embedding_dimension is None:
+        embedding_dimension = 100
+    else:
+        embedding_dimension = embedding_dimension
+
+    if model is None:
+        # create a word embedding model
+        model = Sequential()
+        model.add(Embedding(vocab_size, embedding_dimension, input_length=max_token_length))
+        model.add(GRU(units=100, dropout=0.2, recurrent_dropout=0.2))
+        model.add(Dense(1, activation='sigmoid'))
+
+        # Learning function for that model
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+    model.fit(training_data_tokens_pad, training_class, batch_size=32,
+              epochs=50, verbose=2, validation_data=(testing_data_tokens_pad, testing_class))
+
+    return model
+
+
+def date_and_content_class_gatherer(stocks_data, content_data):
+    print('get data in the format [query, content, date, stock_symbol, close, updown, stock_symbol, close, updown ...]')
+
+
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
+
     # news data is gathered in the format [query, content, date_published],
     # where content is title, description, content.
     # There exist data which the query is None, this data was collected with the use of an old version of searchthenews
     # This can be used for another Y_test set for determining which class of news it was pulled from
-    query_list, dates_list, content_list = gather_news_content('news.db')
-
-    content_dataframe = pd.DataFrame([query_list, dates_list, content_list]).transpose()
-    content_dataframe.columns = ['query', 'date', 'content']
+    #query_list, dates_list, content_list = gather_news_content('news.db')
+    #content_dataframe = pd.DataFrame([query_list, dates_list, content_list]).transpose()
+    #content_dataframe.columns = ['query', 'date', 'content']
 
     # Stocks information
     stocks = gather_data_from_stocks()
 
     # create a tfidf of the content_list
-    #tfidf_training_set, tfidf_test_set = tfidf_data_before_date(content_dataframe, datetime.datetime(2019, 11, 1))
+    # tfidf_training_set, tfidf_test_set = tfidf_data_before_date(content_dataframe, datetime.datetime(2019, 11, 1))
 
     # tfidf_vector = TfidfVectorizer()
     # tfidf_vector.fit(content_list)
     # tfidf_content = tfidf_vector.transform(content_list)
 
-    word_to_vec_model = create_gensim_word_2_vec_model(content_list)
-
+    # TSNE PLOT OF WORD2VEC similar words
+    #word_to_vec_model = create_gensim_word_2_vec_model(content_list)
     #word_to_vec_model = load_gensim_word_2_vec_model('content_word2vec.p')
-
-    tsne_plot(word_to_vec_model, 'sony', 50)
-
+    #tsne_plot(word_to_vec_model, 'sony', 50, 20)
 
 

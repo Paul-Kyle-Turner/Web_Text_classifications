@@ -10,6 +10,7 @@ from os import listdir
 from os.path import isfile, join
 import warnings
 import pytz
+import pickle
 
 from matplotlib import pyplot as plt
 
@@ -209,6 +210,8 @@ def gather_data_before_and_after(dataframe, date):
             beforedataframe = beforedataframe.append(row)
         else:
             afterdataframe = afterdataframe.append(row)
+        if index % 500 == 0:
+            print(index)
     return beforedataframe, afterdataframe
 
 
@@ -257,7 +260,7 @@ def load_gensim_word_2_vec_model(path):
 # training and testing data is assumed to be in a list of values
 # df['content'] is the data
 def keras_word_embedding(training_data, testing_data, training_class, testing_class,
-                         embedding_dimension=None, model=None):
+                         embedding_dimension=None, model=None, updown=True):
     # create tokenizer to generate training and testing tokens for later use
     tokens = Tokenizer()
     total_text = training_data + testing_data
@@ -283,6 +286,25 @@ def keras_word_embedding(training_data, testing_data, training_class, testing_cl
     else:
         embedding_dimension = embedding_dimension
 
+    if updown:
+
+        training_class2 = list()
+        testing_class2 = list()
+
+        for t_class in training_class:
+            if t_class == 'up':
+                training_class2.append(1)
+            else:
+                training_class2.append(0)
+
+        for t_class in testing_class:
+            if t_class == 'up':
+                testing_class2.append(1)
+            else:
+                testing_class2.append(0)
+        training_class = np.asarray(training_class2).astype('int8')
+        testing_class = np.asarray(testing_class2).astype('int8')
+
     if model is None:
         # create a word embedding model
         model = Sequential()
@@ -293,8 +315,8 @@ def keras_word_embedding(training_data, testing_data, training_class, testing_cl
         # Learning function for that model
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-    model.fit(training_data_tokens_pad, training_class, batch_size=32,
-              epochs=50, verbose=2, validation_data=(testing_data_tokens_pad, testing_class))
+    model.fit(training_data_tokens_pad, training_class, batch_size=64,
+              epochs=15, verbose=2, validation_data=(testing_data_tokens_pad, testing_class))
 
     return model
 
@@ -423,19 +445,39 @@ if __name__ == '__main__':
     # where content is title, description, content.
     # There exist data which the query is None, this data was collected with the use of an old version of searchthenews
     # This can be used for another Y_test set for determining which class of news it was pulled from
-    query_list, dates_list, content_list = gather_news_content('news.db')
-    content_dataframe = pd.DataFrame([query_list, dates_list, content_list]).transpose()
-    content_dataframe.columns = ['query', 'date', 'content']
+    #query_list, dates_list, content_list = gather_news_content('news.db')
+    #content_dataframe = pd.DataFrame([query_list, dates_list, content_list]).transpose()
+    #content_dataframe.columns = ['query', 'date', 'content']
 
     # Stocks information
-    stocks = gather_data_from_stocks()
+    #stocks = gather_data_from_stocks()
 
-    # gahter all of the information into a single dataframe such that gathering training and testing sets becomes easier
+    # gather all of the information into a single dataframe such that gathering training and testing sets becomes easier
     # This increases the size of time file but that is a fair tradeoff that i am willing to make
     # The dataframe is then saved such that the preprocessing
     # of the content and stocks information only happens a single time
-    total_data = date_and_content_class_gatherer(stocks, content_dataframe)
-    total_data.to_pickle('total_data.p')
+    #total_data = date_and_content_class_gatherer(stocks, content_dataframe)
+    #total_data.to_pickle('total_data.p')
+
+    # all lines above this can be commented out if the total_data.p file exists
+    total_data = pd.read_pickle('total_data.p')
+    working_date = datetime.datetime.strptime('2019-11-11', '%Y-%m-%d').replace(tzinfo=pytz.UTC)
+
+    print('Dataframe split')
+    total_before, total_after = gather_data_before_and_after(total_data, working_date)
+    total_before.to_pickle('total_before.p')
+    total_after.to_pickle('total_after.p')
+
+    total_before = pd.read_pickle('total_before.p')
+    total_after = pd.read_pickle('total_after.p')
+
+    print('NN Training')
+    model = keras_word_embedding(total_before['content'].tolist(), total_after['content'].tolist(),
+                                 total_before['AMZN_updown'].tolist(), total_after['AMZN_updown'].tolist(),
+                                 embedding_dimension=100, updown=True)
+
+    with open('nn_amzn_updown_w2v.p', 'wb') as file:
+        pickle.dump(model, file)
 
     # create a tfidf of the content_list
     # tfidf_training_set, tfidf_test_set = tfidf_data_before_date(content_dataframe, datetime.datetime(2019, 11, 1))

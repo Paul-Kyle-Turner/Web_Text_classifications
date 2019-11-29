@@ -261,7 +261,8 @@ def load_gensim_word_2_vec_model(path):
 # training and testing data is assumed to be in a list of values
 # df['content'] is the data
 def keras_word_embedding(training_data, testing_data, training_class, testing_class,
-                         embedding_dimension=None, model=None, updown=True):
+                         embedding_dimension=None, model_ex=None, updown=True,
+                         save_path='Models'):
     # create tokenizer to generate training and testing tokens for later use
     tokens = Tokenizer()
     total_text = training_data + testing_data
@@ -287,6 +288,7 @@ def keras_word_embedding(training_data, testing_data, training_class, testing_cl
     else:
         embedding_dimension = embedding_dimension
 
+    # if it is a classification of a binary, which updown is
     if updown:
 
         training_class2 = list()
@@ -306,17 +308,35 @@ def keras_word_embedding(training_data, testing_data, training_class, testing_cl
         training_class = np.asarray(training_class2).astype('int8')
         testing_class = np.asarray(testing_class2).astype('int8')
 
-    if model is None:
+    if model_ex == 'simple':
         # create a word embedding model
         model = Sequential()
         model.add(Embedding(vocab_size, embedding_dimension, input_length=max_token_length))
         model.add(GRU(units=100, dropout=0, recurrent_dropout=0))
         model.add(Dense(1, activation='sigmoid'))
+        # Learning function for that model
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    # That it is a 100% accuracy, something broke
+    elif model_ex == 'relu':
+        # create word embedding model with close
+        model = Sequential()
+        model.add(Embedding(vocab_size, embedding_dimension, input_length=max_token_length))
+        model.add(GRU(units=100))
+        model.add(Dense(units=100, activation='relu'))
+        model.add(Dense(1, activation='sigmoid'))
+        # Learning function for that model
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    elif model_ex == 'lstm':
+        # create word embedding model with close
+        model = Sequential()
+        model.add(Embedding(vocab_size, embedding_dimension, input_length=max_token_length))
+        model.add(GRU(units=100))
+        model.add(Dense(units=100, activation='lstm'))
+        model.add(Dense(1, activation='sigmoid'))
+        # Learning function for that model
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-    # Learning function for that model
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-
-    callbacks = ModelCheckpoint('Models',
+    callbacks = ModelCheckpoint(save_path,
                                 save_best_only=True,
                                 verbose=1)
 
@@ -478,9 +498,11 @@ if __name__ == '__main__':
     total_after = pd.read_pickle('total_after.p')
 
     print('NN Training')
+
     model = keras_word_embedding(total_before['content'].tolist(), total_after['content'].tolist(),
-                                 total_before['AMZN_updown'].tolist(), total_after['AMZN_updown'].tolist(),
-                                 embedding_dimension=100, updown=True)
+                                 np.asarray(total_before['AMZN_updown'].tolist()),
+                                 np.asarray(total_after['AMZN_updown'].tolist()),
+                                 embedding_dimension=100, updown=True, model_ex='simple', save_path='Simple')
 
     # create a tfidf of the content_list
     # tfidf_training_set, tfidf_test_set = tfidf_data_before_date(content_dataframe, datetime.datetime(2019, 11, 1))

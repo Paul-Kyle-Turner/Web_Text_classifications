@@ -308,10 +308,11 @@ def keras_word_embedding(training_data, testing_data, training_class, testing_cl
         training_class = np.asarray(training_class2).astype('int8')
         testing_class = np.asarray(testing_class2).astype('int8')
 
+    model = Sequential()
+    model.add(Embedding(vocab_size, embedding_dimension, input_length=max_token_length))
+
     if model_ex == 'simple':
         # create a word embedding model
-        model = Sequential()
-        model.add(Embedding(vocab_size, embedding_dimension, input_length=max_token_length))
         model.add(GRU(units=100, dropout=0, recurrent_dropout=0))
         model.add(Dense(1, activation='sigmoid'))
         # Learning function for that model
@@ -319,8 +320,6 @@ def keras_word_embedding(training_data, testing_data, training_class, testing_cl
     # That it is a 100% accuracy, something broke
     elif model_ex == 'relu':
         # create word embedding model with close
-        model = Sequential()
-        model.add(Embedding(vocab_size, embedding_dimension, input_length=max_token_length))
         model.add(GRU(units=100))
         model.add(Dense(units=100, activation='relu'))
         model.add(Dense(1, activation='sigmoid'))
@@ -328,8 +327,6 @@ def keras_word_embedding(training_data, testing_data, training_class, testing_cl
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
     elif model_ex == 'lstm':
         # create word embedding model with close
-        model = Sequential()
-        model.add(Embedding(vocab_size, embedding_dimension, input_length=max_token_length))
         model.add(GRU(units=100))
         model.add(Dense(units=100, activation='lstm'))
         model.add(Dense(1, activation='sigmoid'))

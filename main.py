@@ -18,7 +18,7 @@ import tensorflow as tf
 from tensorflow.python.keras.preprocessing.text import Tokenizer
 from tensorflow.python.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Embedding, GRU
+from tensorflow.keras.layers import Dense, Embedding, GRU, LSTM
 from tensorflow.keras.callbacks import ModelCheckpoint
 
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -325,13 +325,6 @@ def keras_word_embedding(training_data, testing_data, training_class, testing_cl
         model.add(Dense(1, activation='sigmoid'))
         # Learning function for that model
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-    elif model_ex == 'lstm':
-        # create word embedding model with close
-        model.add(GRU(units=100))
-        model.add(Dense(units=100, activation='lstm'))
-        model.add(Dense(1, activation='sigmoid'))
-        # Learning function for that model
-        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
     callbacks = ModelCheckpoint(save_path,
                                 save_best_only=True,
@@ -499,7 +492,7 @@ if __name__ == '__main__':
     model = keras_word_embedding(total_before['content'].tolist(), total_after['content'].tolist(),
                                  np.asarray(total_before['AMZN_updown'].tolist()),
                                  np.asarray(total_after['AMZN_updown'].tolist()),
-                                 embedding_dimension=100, updown=True, model_ex='simple', save_path='Simple')
+                                 embedding_dimension=100, updown=True, model_ex='lstm', save_path='LSTM')
 
     # create a tfidf of the content_list
     # tfidf_training_set, tfidf_test_set = tfidf_data_before_date(content_dataframe, datetime.datetime(2019, 11, 1))

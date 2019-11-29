@@ -261,7 +261,7 @@ def load_gensim_word_2_vec_model(path):
 # training and testing data is assumed to be in a list of values
 # df['content'] is the data
 def keras_word_embedding(training_data, testing_data, training_class, testing_class,
-                         embedding_dimension=None, model_ex=None, updown=True,
+                         embedding_dimension=None, model_ex='simple', updown=True,
                          save_path='Models'):
     # create tokenizer to generate training and testing tokens for later use
     tokens = Tokenizer()

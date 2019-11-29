@@ -2,12 +2,14 @@ import pandas as pd
 import numpy as np
 import math
 import datetime
+from datetime import timedelta
 import sqlite3
 import re
 import os
 from os import listdir
 from os.path import isfile, join
 import warnings
+import pytz
 
 from matplotlib import pyplot as plt
 
@@ -63,6 +65,7 @@ def gather_data_from_stocks():
             close_updown.append('up')
         elif close_last > close_list[ind]:
             close_updown.append('down')
+        close_last = close_list[ind]
 
     # add classification list to set of stocks
     # ERROR - with all stocks that are in dataframe there exists an index where there is a symbol change
@@ -126,8 +129,8 @@ def replacer(list_data):
                 temp_collect.append(end_string_list[0].lower())
 
         # remove excess date information
-        if len(date) >= 20:
-            date = date[0:19]
+        if len(date) >= 10:
+            date = date[0:10]
 
         query_list.append(query)
         dates_list.append(date)
@@ -135,7 +138,8 @@ def replacer(list_data):
 
     # convert string to datetime
     for index_in_date_list in range(len(dates_list)):
-        dates_list[index_in_date_list] = datetime.datetime.strptime(dates_list[index_in_date_list], '%Y-%m-%dT%H:%M:%S')
+        dates_list[index_in_date_list] = datetime.datetime.strptime(dates_list[index_in_date_list]
+                                                                    , '%Y-%m-%d').replace(tzinfo=pytz.utc)
 
     return query_list, dates_list, content_list
 
@@ -296,22 +300,142 @@ def keras_word_embedding(training_data, testing_data, training_class, testing_cl
 
 
 def date_and_content_class_gatherer(stocks_data, content_data):
-    print('get data in the format [query, content, date, stock_symbol, close, updown, stock_symbol, close, updown ...]')
+    amzn_updown = []
+    amzn_close = []
+    amd_updown = []
+    amd_close = []
+    aapl_updown = []
+    aapl_close = []
+    jpm_updown = []
+    jpm_close = []
+    gme_updown = []
+    gme_close = []
+    googl_updown = []
+    googl_close = []
+    hpq_updown = []
+    hpq_close = []
+    lyft_updown = []
+    lyft_close = []
+    msft_updown = []
+    msft_close = []
+    ntdoy_updown = []
+    ntdoy_close = []
+    nvda_updown = []
+    nvda_close = []
+    sne_updown = []
+    sne_close = []
+    td_updown = []
+    td_close = []
+    uber_updown = []
+    uber_close = []
+
+    for index, content in content_data.iterrows():
+        date = content['date']
+        stocks_date = stocks_data.loc[stocks_data['date'] == date]
+
+        # This section of code is for selecting the monday after a weekend if the content was posted on a weekend
+        # this also accounts for days that are considered holidays
+        # placing the close and updown at the end of the holiday
+        # this breaks if the date of content is beyond the date of stocks
+        while stocks_date.empty:
+            date = date + timedelta(days=1)
+            stocks_date = stocks_data.loc[stocks_data['date'] == date]
+
+        for index, stock in stocks_date.iterrows():
+            if stock['symbol'] == 'AMZN':
+                amzn_updown.append(stock['updown'])
+                amzn_close.append(stock['close'])
+            elif stock['symbol'] == 'AMD':
+                amd_updown.append(stock['updown'])
+                amd_close.append(stock['close'])
+            elif stock['symbol'] == 'AAPL':
+                aapl_updown.append(stock['updown'])
+                aapl_close.append(stock['close'])
+            elif stock['symbol'] == 'JPM':
+                jpm_updown.append(stock['updown'])
+                jpm_close.append(stock['close'])
+            elif stock['symbol'] == 'GME':
+                gme_updown.append(stock['updown'])
+                gme_close.append(stock['close'])
+            elif stock['symbol'] == 'GOOGL':
+                googl_updown.append(stock['updown'])
+                googl_close.append(stock['close'])
+            elif stock['symbol'] == 'HPQ':
+                hpq_updown.append(stock['updown'])
+                hpq_close.append(stock['close'])
+            elif stock['symbol'] == 'LYFT':
+                lyft_updown.append(stock['updown'])
+                lyft_close.append(stock['close'])
+            elif stock['symbol'] == 'MSFT':
+                msft_updown.append(stock['updown'])
+                msft_close.append(stock['close'])
+            elif stock['symbol'] == 'NTDOY':
+                ntdoy_updown.append(stock['updown'])
+                ntdoy_close.append(stock['close'])
+            elif stock['symbol'] == 'NVDA':
+                nvda_updown.append(stock['updown'])
+                nvda_close.append(stock['close'])
+            elif stock['symbol'] == 'SNE':
+                sne_updown.append(stock['updown'])
+                sne_close.append(stock['close'])
+            elif stock['symbol'] == 'TD':
+                td_updown.append(stock['updown'])
+                td_close.append(stock['close'])
+            elif stock['symbol'] == 'UBER':
+                uber_updown.append(stock['updown'])
+                uber_close.append(stock['close'])
+
+    content_data['AMZN_updown'] = amzn_updown
+    content_data['AMZN_close'] = amzn_close
+    content_data['AMD_updown'] = amd_updown
+    content_data['AMD_close'] = amd_close
+    content_data['APPL_updown'] = aapl_updown
+    content_data['APPL_close'] = aapl_close
+    content_data['JPM_updown'] = jpm_updown
+    content_data['JPM_close'] = jpm_close
+    content_data['GME_updown'] = gme_updown
+    content_data['GME_close'] = gme_close
+    content_data['GOOGL_updown'] = googl_updown
+    content_data['GOOGL_close'] = googl_close
+    content_data['HPQ_updown'] = hpq_updown
+    content_data['HPQ_close'] = hpq_close
+    content_data['LYFT_updown'] = lyft_updown
+    content_data['LYFT_close'] = lyft_close
+    content_data['MSFT_updown'] = msft_updown
+    content_data['MSFT_close'] = msft_close
+    content_data['NTDOY_updown'] = ntdoy_updown
+    content_data['NTDOY_close'] = ntdoy_close
+    content_data['NVDA_updown'] = nvda_updown
+    content_data['NVDA_close'] = nvda_close
+    content_data['SNE_updown'] = sne_updown
+    content_data['SNE_close'] = sne_close
+    content_data['TD_updown'] = td_updown
+    content_data['TD_close'] = td_close
+    content_data['UBER_updown'] = uber_updown
+    content_data['UBER_close'] = uber_close
+
+    return content_data
 
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
-
     # news data is gathered in the format [query, content, date_published],
     # where content is title, description, content.
     # There exist data which the query is None, this data was collected with the use of an old version of searchthenews
     # This can be used for another Y_test set for determining which class of news it was pulled from
-    #query_list, dates_list, content_list = gather_news_content('news.db')
-    #content_dataframe = pd.DataFrame([query_list, dates_list, content_list]).transpose()
-    #content_dataframe.columns = ['query', 'date', 'content']
+    query_list, dates_list, content_list = gather_news_content('news.db')
+    content_dataframe = pd.DataFrame([query_list, dates_list, content_list]).transpose()
+    content_dataframe.columns = ['query', 'date', 'content']
 
     # Stocks information
     stocks = gather_data_from_stocks()
+
+    # gahter all of the information into a single dataframe such that gathering training and testing sets becomes easier
+    # This increases the size of time file but that is a fair tradeoff that i am willing to make
+    # The dataframe is then saved such that the preprocessing
+    # of the content and stocks information only happens a single time
+    total_data = date_and_content_class_gatherer(stocks, content_dataframe)
+    total_data.to_pickle('total_data.p')
 
     # create a tfidf of the content_list
     # tfidf_training_set, tfidf_test_set = tfidf_data_before_date(content_dataframe, datetime.datetime(2019, 11, 1))
@@ -321,8 +445,8 @@ if __name__ == '__main__':
     # tfidf_content = tfidf_vector.transform(content_list)
 
     # TSNE PLOT OF WORD2VEC similar words
-    #word_to_vec_model = create_gensim_word_2_vec_model(content_list)
-    #word_to_vec_model = load_gensim_word_2_vec_model('content_word2vec.p')
-    #tsne_plot(word_to_vec_model, 'sony', 50, 20)
+    # word_to_vec_model = create_gensim_word_2_vec_model(content_list)
+    # word_to_vec_model = load_gensim_word_2_vec_model('content_word2vec.p')
+    # tsne_plot(word_to_vec_model, 'sony', 50, 20)
 
 

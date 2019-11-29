@@ -18,7 +18,7 @@ import tensorflow as tf
 from tensorflow.python.keras.preprocessing.text import Tokenizer
 from tensorflow.python.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Embedding, GRU, LSTM
+from tensorflow.keras.layers import Dense, Embedding, GRU
 from tensorflow.keras.callbacks import ModelCheckpoint
 
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -260,7 +260,7 @@ def load_gensim_word_2_vec_model(path):
 
 # training and testing data is assumed to be in a list of values
 # df['content'] is the data
-def keras_word_embedding(training_data, testing_data, training_class, testing_class,
+def keras_word_embedding_updown(training_data, testing_data, training_class, testing_class,
                          embedding_dimension=None, model_ex='simple', updown=True,
                          save_path='Models'):
     # create tokenizer to generate training and testing tokens for later use
@@ -311,6 +311,7 @@ def keras_word_embedding(training_data, testing_data, training_class, testing_cl
     model = Sequential()
     model.add(Embedding(vocab_size, embedding_dimension, input_length=max_token_length))
 
+    # GRU does not have a dropout because of a bug in tensor 2.0 which doesn't allow a gru with dropout to be saved
     if model_ex == 'simple':
         # create a word embedding model
         model.add(GRU(units=100, dropout=0, recurrent_dropout=0))
@@ -427,8 +428,8 @@ def date_and_content_class_gatherer(stocks_data, content_data):
     content_data['AMZN_close'] = amzn_close
     content_data['AMD_updown'] = amd_updown
     content_data['AMD_close'] = amd_close
-    content_data['APPL_updown'] = aapl_updown
-    content_data['APPL_close'] = aapl_close
+    content_data['AAPL_updown'] = aapl_updown
+    content_data['AAPL_close'] = aapl_close
     content_data['JPM_updown'] = jpm_updown
     content_data['JPM_close'] = jpm_close
     content_data['GME_updown'] = gme_updown
@@ -461,38 +462,48 @@ if __name__ == '__main__':
     # where content is title, description, content.
     # There exist data which the query is None, this data was collected with the use of an old version of searchthenews
     # This can be used for another Y_test set for determining which class of news it was pulled from
-    #query_list, dates_list, content_list = gather_news_content('news.db')
-    #content_dataframe = pd.DataFrame([query_list, dates_list, content_list]).transpose()
-    #content_dataframe.columns = ['query', 'date', 'content']
+    query_list, dates_list, content_list = gather_news_content('news.db')
+    content_dataframe = pd.DataFrame([query_list, dates_list, content_list]).transpose()
+    content_dataframe.columns = ['query', 'date', 'content']
 
     # Stocks information
-    #stocks = gather_data_from_stocks()
+    stocks = gather_data_from_stocks()
 
     # gather all of the information into a single dataframe such that gathering training and testing sets becomes easier
     # This increases the size of time file but that is a fair tradeoff that i am willing to make
     # The dataframe is then saved such that the preprocessing
     # of the content and stocks information only happens a single time
-    #total_data = date_and_content_class_gatherer(stocks, content_dataframe)
-    #total_data.to_pickle('total_data.p')
+    total_data = date_and_content_class_gatherer(stocks, content_dataframe)
+    total_data.to_pickle('total_data.p')
 
     # all lines above this can be commented out if the total_data.p file exists
-    #total_data = pd.read_pickle('total_data.p')
-    #working_date = datetime.datetime.strptime('2019-11-11', '%Y-%m-%d').replace(tzinfo=pytz.UTC)
+    total_data = pd.read_pickle('total_data.p')
+    working_date = datetime.datetime.strptime('2019-11-15', '%Y-%m-%d').replace(tzinfo=pytz.UTC)
 
     #print('Dataframe split')
-    #total_before, total_after = gather_data_before_and_after(total_data, working_date)
-    #total_before.to_pickle('total_before.p')
-    #total_after.to_pickle('total_after.p')
+    total_before, total_after = gather_data_before_and_after(total_data, working_date)
+    total_before.to_pickle('total_before.p')
+    total_after.to_pickle('total_after.p')
 
     total_before = pd.read_pickle('total_before.p')
     total_after = pd.read_pickle('total_after.p')
 
     print('NN Training')
 
-    model = keras_word_embedding(total_before['content'].tolist(), total_after['content'].tolist(),
-                                 np.asarray(total_before['AMZN_updown'].tolist()),
-                                 np.asarray(total_after['AMZN_updown'].tolist()),
-                                 embedding_dimension=100, updown=True, model_ex='lstm', save_path='LSTM')
+    names = stocks.symbol.unique()
+
+    for col in total_after.columns:
+        print(col)
+
+    print(names)
+    for name in names:
+        types = ['relu', 'simple']
+        for nn_type in types:
+            model = keras_word_embedding_updown(total_before['content'].tolist(), total_after['content'].tolist(),
+                                                np.asarray(total_before[name + '_updown'].tolist()),
+                                                np.asarray(total_after[name + '_updown'].tolist()),
+                                                embedding_dimension=100, updown=True,
+                                                model_ex=nn_type, save_path='NN_STOCKS_UPDOWN/' + name + '/' + nn_type.upper())
 
     # create a tfidf of the content_list
     # tfidf_training_set, tfidf_test_set = tfidf_data_before_date(content_dataframe, datetime.datetime(2019, 11, 1))

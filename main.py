@@ -19,6 +19,7 @@ from tensorflow.python.keras.preprocessing.text import Tokenizer
 from tensorflow.python.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Embedding, GRU
+from tensorflow.keras.callbacks import ModelCheckpoint
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.manifold import TSNE
@@ -309,14 +310,19 @@ def keras_word_embedding(training_data, testing_data, training_class, testing_cl
         # create a word embedding model
         model = Sequential()
         model.add(Embedding(vocab_size, embedding_dimension, input_length=max_token_length))
-        model.add(GRU(units=100, dropout=0.2, recurrent_dropout=0.2))
+        model.add(GRU(units=100, dropout=0, recurrent_dropout=0))
         model.add(Dense(1, activation='sigmoid'))
 
-        # Learning function for that model
-        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    # Learning function for that model
+    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+    callbacks = ModelCheckpoint('Models',
+                                save_best_only=True,
+                                verbose=1)
 
     model.fit(training_data_tokens_pad, training_class, batch_size=64,
-              epochs=15, verbose=2, validation_data=(testing_data_tokens_pad, testing_class))
+              epochs=15, verbose=2, validation_data=(testing_data_tokens_pad, testing_class),
+              callbacks=[callbacks])
 
     return model
 
@@ -460,13 +466,13 @@ if __name__ == '__main__':
     #total_data.to_pickle('total_data.p')
 
     # all lines above this can be commented out if the total_data.p file exists
-    total_data = pd.read_pickle('total_data.p')
-    working_date = datetime.datetime.strptime('2019-11-11', '%Y-%m-%d').replace(tzinfo=pytz.UTC)
+    #total_data = pd.read_pickle('total_data.p')
+    #working_date = datetime.datetime.strptime('2019-11-11', '%Y-%m-%d').replace(tzinfo=pytz.UTC)
 
-    print('Dataframe split')
-    total_before, total_after = gather_data_before_and_after(total_data, working_date)
-    total_before.to_pickle('total_before.p')
-    total_after.to_pickle('total_after.p')
+    #print('Dataframe split')
+    #total_before, total_after = gather_data_before_and_after(total_data, working_date)
+    #total_before.to_pickle('total_before.p')
+    #total_after.to_pickle('total_after.p')
 
     total_before = pd.read_pickle('total_before.p')
     total_after = pd.read_pickle('total_after.p')
@@ -475,9 +481,6 @@ if __name__ == '__main__':
     model = keras_word_embedding(total_before['content'].tolist(), total_after['content'].tolist(),
                                  total_before['AMZN_updown'].tolist(), total_after['AMZN_updown'].tolist(),
                                  embedding_dimension=100, updown=True)
-
-    with open('nn_amzn_updown_w2v.p', 'wb') as file:
-        pickle.dump(model, file)
 
     # create a tfidf of the content_list
     # tfidf_training_set, tfidf_test_set = tfidf_data_before_date(content_dataframe, datetime.datetime(2019, 11, 1))

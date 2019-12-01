@@ -20,9 +20,17 @@ from tensorflow.python.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Embedding, GRU
 from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow import pad
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.manifold import TSNE
+from sklearn.model_selection import GridSearchCV
+from sklearn.naive_bayes import MultinomialNB, BernoulliNB
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import confusion_matrix, accuracy_score
 
 from nltk.corpus import stopwords
 from gensim.parsing.preprocessing import remove_stopwords
@@ -31,7 +39,6 @@ from gensim.utils import simple_preprocess
 from gensim.test.utils import get_tmpfile
 from gensim.models import Phrases
 from gensim.models import Word2Vec
-
 
 
 # python array of files by pycruft, stackoverflow
@@ -155,7 +162,6 @@ def preprocess_content_for_gensim(content_list):
 
 
 def tsne_plot(model, word, perplexity, quit_words):
-
     # Gather the closest words a few times to have some data to look at
     close_words = model.similar_by_word(word)
     close_words_extra = []
@@ -235,15 +241,39 @@ def data_after_date(dataframe, date):
 
 
 # Splits the dataset for training and testing by the input date.
-def tfidf_data_before_date(data_to_be_tfidf, date):
-    tfidf_training_set = []
-    tfidf_test_set = []
-    for index, row in data_to_be_tfidf.iterrows():
+def tfidf_data_before_date(dataframe, date):
+    tfidf_total_of_content = []
+    tfidf_vector = TfidfVectorizer(stop_words='english', max_features=1000)
+    for index, row in dataframe.iterrows():
         if row['date'] < date:
-            tfidf_training_set.append(row['content'])
-        else:
-            tfidf_test_set.append(row['content'])
-    return tfidf_training_set, tfidf_test_set
+            tfidf_vector.fit([row['content']])
+
+    for index, row in dataframe.iterrows():
+        tfidf_total_of_content.append(tfidf_vector.transform([row['content']]).todense())
+
+    dataframe['tfidf'] = tfidf_total_of_content
+
+    train_data, test_data = gather_data_before_and_after(dataframe, date)
+
+    return tfidf_vector, train_data, test_data
+
+
+# Does tfidf for the sklearn models
+def tfidf_data(dataframe):
+    tfidf_total_of_content = []
+    tfidf_vector = TfidfVectorizer(stop_words='english', max_features=10000)
+
+    for index, row in dataframe.iterrows():
+        tfidf_vector.fit([row['content']])
+
+    for index, row in dataframe.iterrows():
+        temp = tfidf_vector.transform([row['content']])
+        temp2 = temp.todense()
+        tfidf_total_of_content.append(temp2.tolist()[0])
+
+    dataframe['tfidf'] = tfidf_total_of_content
+
+    return dataframe, tfidf_total_of_content
 
 
 def create_gensim_word_2_vec_model(content_list):
@@ -258,11 +288,33 @@ def load_gensim_word_2_vec_model(path):
     return Word2Vec.load(file)
 
 
+def updown_to_1_0(training, testing):
+    # if it is a classification of a binary, which updown is
+    training_class2 = list()
+    testing_class2 = list()
+
+    for t_class in training:
+        if t_class == 'up':
+            training_class2.append(1)
+        else:
+            training_class2.append(0)
+
+    for t_class in testing:
+        if t_class == 'up':
+            testing_class2.append(1)
+        else:
+            testing_class2.append(0)
+    training_class = np.asarray(training_class2).astype('int8')
+    testing_class = np.asarray(testing_class2).astype('int8')
+
+    return training_class, testing_class
+
+
 # training and testing data is assumed to be in a list of values
 # df['content'] is the data
 def keras_word_embedding_updown(training_data, testing_data, training_class, testing_class,
-                         embedding_dimension=None, model_ex='simple', updown=True,
-                         save_path='Models'):
+                                embedding_dimension=None, model_ex='simple', updown=True,
+                                save_path='Models'):
     # create tokenizer to generate training and testing tokens for later use
     tokens = Tokenizer()
     total_text = training_data + testing_data
@@ -285,28 +337,10 @@ def keras_word_embedding_updown(training_data, testing_data, training_class, tes
 
     if embedding_dimension is None:
         embedding_dimension = 100
-    else:
-        embedding_dimension = embedding_dimension
 
     # if it is a classification of a binary, which updown is
     if updown:
-
-        training_class2 = list()
-        testing_class2 = list()
-
-        for t_class in training_class:
-            if t_class == 'up':
-                training_class2.append(1)
-            else:
-                training_class2.append(0)
-
-        for t_class in testing_class:
-            if t_class == 'up':
-                testing_class2.append(1)
-            else:
-                testing_class2.append(0)
-        training_class = np.asarray(training_class2).astype('int8')
-        testing_class = np.asarray(testing_class2).astype('int8')
+        training_class, testing_class = updown_to_1_0(training_class, testing_class)
 
     model = Sequential()
     model.add(Embedding(vocab_size, embedding_dimension, input_length=max_token_length))
@@ -314,15 +348,15 @@ def keras_word_embedding_updown(training_data, testing_data, training_class, tes
     # GRU does not have a dropout because of a bug in tensor 2.0 which doesn't allow a gru with dropout to be saved
     if model_ex == 'simple':
         # create a word embedding model
-        model.add(GRU(units=100, dropout=0, recurrent_dropout=0))
+        model.add(GRU(units=embedding_dimension, dropout=0, recurrent_dropout=0))
         model.add(Dense(1, activation='sigmoid'))
         # Learning function for that model
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
     # That it is a 100% accuracy, something broke
     elif model_ex == 'relu':
         # create word embedding model with close
-        model.add(GRU(units=100))
-        model.add(Dense(units=100, activation='relu'))
+        model.add(GRU(units=embedding_dimension))
+        model.add(Dense(units=50, activation='relu'))
         model.add(Dense(1, activation='sigmoid'))
         # Learning function for that model
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
@@ -334,6 +368,37 @@ def keras_word_embedding_updown(training_data, testing_data, training_class, tes
     model.fit(training_data_tokens_pad, training_class, batch_size=64,
               epochs=15, verbose=2, validation_data=(testing_data_tokens_pad, testing_class),
               callbacks=[callbacks])
+
+    return model
+
+
+def keras_tfidf(training_data, testing_data, training_class, testing_class, tfidf_vectorizer,
+                model_ex='simple', updown=True, save_path='NN_STOCKS_UPDOWN_TFIDF'):
+    feature_len = len(tfidf_vectorizer.get_feature_names())
+
+    # if it is a classification of a binary, which updown is
+    if updown:
+        training_class, testing_class = updown_to_1_0(training_class, testing_class)
+
+    model = Sequential()
+
+    if model_ex == 'simple':
+        model.add(Dense(units=feature_len, activation='sigmoid'))
+        model.add(Dense(units=100, activation='sigmoid'))
+        model.add(Dense(units=1))
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    if model_ex == 'relu':
+        model.add(Dense(units=feature_len, activation='relu'))
+        model.add(Dense(units=100, activation='sigmoid'))
+        model.add(Dense(units=1))
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+    callbacks = ModelCheckpoint(save_path,
+                                save_best_only=True,
+                                verbose=1)
+
+    model.fit(training_data, training_class, batch_size=64, epochs=15,
+              verbose=2, callbacks=[callbacks], validation_data=(testing_data, testing_class))
 
     return model
 
@@ -456,15 +521,28 @@ def date_and_content_class_gatherer(stocks_data, content_data):
     return content_data
 
 
+def sklearn_linear_models_classifier(training_data, training_class, models, model_params,
+                                     model_save_folders, model_names):
+    for model, params, save, save_name in zip(models, model_params, model_save_folders, model_names):
+        grid = GridSearchCV(model, params, cv=5, n_jobs=2)
+        grid.fit(list(training_data),
+                 training_class)
+        with open('SKLEARN_MODELS/' + name + '/' + save + '/' + save_name, 'wb') as file:
+            pickle.dump(grid, file)
+        with open('SKLEARN_MODELS/' + name + '/' + save + '/' + save_name, 'w+') as file:
+            file.write(grid.best_estimator_)
+            file.write(grid.best_score_)
+
+
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
     # news data is gathered in the format [query, content, date_published],
     # where content is title, description, content.
     # There exist data which the query is None, this data was collected with the use of an old version of searchthenews
     # This can be used for another Y_test set for determining which class of news it was pulled from
-    query_list, dates_list, content_list = gather_news_content('news.db')
-    content_dataframe = pd.DataFrame([query_list, dates_list, content_list]).transpose()
-    content_dataframe.columns = ['query', 'date', 'content']
+    # query_list, dates_list, content_list = gather_news_content('news.db')
+    # content_dataframe = pd.DataFrame([query_list, dates_list, content_list]).transpose()
+    # content_dataframe.columns = ['query', 'date', 'content']
 
     # Stocks information
     stocks = gather_data_from_stocks()
@@ -473,48 +551,104 @@ if __name__ == '__main__':
     # This increases the size of time file but that is a fair tradeoff that i am willing to make
     # The dataframe is then saved such that the preprocessing
     # of the content and stocks information only happens a single time
-    total_data = date_and_content_class_gatherer(stocks, content_dataframe)
-    total_data.to_pickle('total_data.p')
+    # total_data = date_and_content_class_gatherer(stocks, content_dataframe)
+    # total_data.to_pickle('total_data.p')
 
     # all lines above this can be commented out if the total_data.p file exists
     total_data = pd.read_pickle('total_data.p')
-    working_date = datetime.datetime.strptime('2019-11-15', '%Y-%m-%d').replace(tzinfo=pytz.UTC)
+    # working_date = datetime.datetime.strptime('2019-11-15', '%Y-%m-%d').replace(tzinfo=pytz.UTC)
 
-    #print('Dataframe split')
-    total_before, total_after = gather_data_before_and_after(total_data, working_date)
-    total_before.to_pickle('total_before.p')
-    total_after.to_pickle('total_after.p')
+    # print('Dataframe split')
+    # total_before, total_after = gather_data_before_and_after(total_data, working_date)
+    # total_before.to_pickle('total_before.p')
+    # total_after.to_pickle('total_after.p')
 
-    total_before = pd.read_pickle('total_before.p')
-    total_after = pd.read_pickle('total_after.p')
+    # total_before = pd.read_pickle('total_before.p')
+    # total_after = pd.read_pickle('total_after.p')
 
+    """
     print('NN Training')
 
-    names = stocks.symbol.unique()
-
-    for col in total_after.columns:
-        print(col)
-
-    print(names)
+    #names = stocks.symbol.unique()
     for name in names:
-        types = ['relu', 'simple']
-        for nn_type in types:
-            model = keras_word_embedding_updown(total_before['content'].tolist(), total_after['content'].tolist(),
-                                                np.asarray(total_before[name + '_updown'].tolist()),
-                                                np.asarray(total_after[name + '_updown'].tolist()),
-                                                embedding_dimension=100, updown=True,
-                                                model_ex=nn_type, save_path='NN_STOCKS_UPDOWN/' + name + '/' + nn_type.upper())
+    types = ['relu', 'simple']
+    for nn_type in types:
+        model = keras_word_embedding_updown(total_before['content'].tolist(), total_after['content'].tolist(),
+                                            np.asarray(total_before[name + '_updown'].tolist()),
+                                            np.asarray(total_after[name + '_updown'].tolist()),
+                                            embedding_dimension=100, updown=True,
+                                            model_ex=nn_type,
+                                            save_path='NN_STOCKS_UPDOWN_EMBEDDED/' + name + '/' + nn_type.upper())
+    """
 
     # create a tfidf of the content_list
-    # tfidf_training_set, tfidf_test_set = tfidf_data_before_date(content_dataframe, datetime.datetime(2019, 11, 1))
+    # tfidf_vector, tfidf_data_before, tfidf_data_after = tfidf_data_before_date(total_data,
+    #                                                                           datetime.datetime(2019, 11, 15,
+    #                                                                                             tzinfo=pytz.UTC))
 
-    # tfidf_vector = TfidfVectorizer()
-    # tfidf_vector.fit(content_list)
-    # tfidf_content = tfidf_vector.transform(content_list)
+    # with open('tfidf_vecotr.p', 'wb') as file:
+    #    pickle.dump(tfidf_vector, file)
+
+    #with open('tfidf_vecotr.p', 'rb') as file:
+    #    tfidf_vector = pickle.load(file)
+
+    # tfidf_data_before.to_pickle('tfidf_data_before')
+    # tfidf_data_after.to_pickle('tfidf_data_after')
+
+    #tfidf_data_before = pd.read_pickle('tfidf_data_before')
+    #tfidf_data_after = pd.read_pickle('tfidf_data_after')
+    #print(tfidf_data_before.head())
+    #print(tfidf_data_after.head())
+
+    """
+    print('NN Training')
+    names = stocks.symbol.unique()
+    for name in names:
+        types = ['SIMPLE', 'RELU']
+        for nn_type in types:
+            model = keras_tfidf(np.asarray(tfidf_data_before['tfidf'].tolist()),
+                                np.asarray(tfidf_data_after['tfidf'].tolist()),
+                                np.asarray(tfidf_data_before[name + '_updown'].tolist()),
+                                np.asarray(tfidf_data_after[name + '_updown'].tolist()),
+                                tfidf_vector,
+                                updown=True,
+                                model_ex=nn_type.lower(),
+                                save_path='NN_STOCKS_UPDOWN_TFIDF/' + name + '/' + nn_type.upper())
+    """
+
+    # MultinomialNB, BernoulliNB, SVC, RandomForestClassifier, LinearRegression, LogisticRegression
+
+    total_data_tfidf, total_of_content = tfidf_data(total_data)
+
+    #total_data_tfidf.to_pickle('total_data_tfidf.p')
+
+    #total_data_tfidf = pd.read_pickle('total_data_tfidf.p')
+
+    bnb = BernoulliNB()
+    mnb = MultinomialNB()
+    rf = RandomForestClassifier(n_estimators=100)
+    svc = SVC()
+    linr = LinearRegression()
+    logr = LogisticRegression()
+    models = [bnb, mnb, rf, svc, linr, logr]
+    model_names = ['bnb', 'mnb', 'rf', 'svc', 'linr', 'logr']
+    model_save_folders = ['BNB', 'MNB', 'RF', 'SVC', 'LINR', 'LOGR']
+    models_params = [{'alpha': [1.5, 2, 3, 4, 10, 100, 1.0, 0.1, 0.001, 0.0001], 'fit_prior': [True, False]},
+                     {'alpha': [1.5, 2, 3, 4, 10, 100, 1.0, 0.1, 0.001, 0.0001], 'fit_prior': [True, False]},
+                     {'n_estimators': [100, 1000], 'criterion': ['gini', 'entropy']},
+                     {'kernel': ['linear', 'poly', 'rbf', 'sigmoid'], 'decision_function_shape ': ['ovo', 'ovr']},
+                     {'fit_intercept': [True, False], 'normalize': [True, False]},
+                     {'penalty': ['l1', 'l2', 'elasticnet', 'none'], 'dual': [True, False]}]
+
+    print(total_of_content[0])
+
+    names = stocks.symbol.unique()
+    for name in names:
+        sklearn_linear_models_classifier(total_of_content,
+                                         total_data_tfidf[name + '_updown'],
+                                         models, models_params, model_save_folders, model_names)
 
     # TSNE PLOT OF WORD2VEC similar words
     # word_to_vec_model = create_gensim_word_2_vec_model(content_list)
     # word_to_vec_model = load_gensim_word_2_vec_model('content_word2vec.p')
     # tsne_plot(word_to_vec_model, 'sony', 50, 20)
-
-

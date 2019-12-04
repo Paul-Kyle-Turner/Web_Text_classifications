@@ -294,7 +294,6 @@ def tfidf_data(dataframe):
 
     dataframe['tfidf'] = tfidf_total_of_content
     '''
-    print(dataframe)
     return dataframe, tfidf_total_of_content
 
 
@@ -564,7 +563,11 @@ def sklearn_linear_models_classifier(training_data, training_class, name, models
     for model, params, save, save_name in zip(models, model_params, model_save_folders, model_names):
         print(save)
         grid = GridSearchCV(model, params, cv=5, n_jobs=2)
-        grid.fit(list(training_data),
+        giantArray = []
+        for index, row in training_data.iterrows():
+            someArray = np.array(training_data.iloc[index])
+            giantArray.append(someArray)
+        grid.fit(giantArray,
                  training_class)
         with open('SKLEARN_MODELS/' + name + '/' + save + '/' + save_name, 'wb') as file:
             pickle.dump(grid, file)
@@ -659,9 +662,7 @@ if __name__ == '__main__':
     # MultinomialNB, BernoulliNB, SVC, RandomForestClassifier, LinearRegression, LogisticRegression
 
     total_data_tfidf, total_of_content = tfidf_data(total_data)
-    print(total_data_tfidf)
-    print()
-    print(total_of_content)
+
     #total_data_tfidf.to_pickle('total_data_tfidf.p')
 
     #total_data_tfidf = pd.read_pickle('total_data_tfidf.p')

@@ -288,6 +288,21 @@ def load_gensim_word_2_vec_model(path):
     return Word2Vec.load(file)
 
 
+def updown_to_digit(training):
+    # if it is a classification of a binary, which updown is
+    training_class2 = list()
+
+    for t_class in training:
+        if t_class == 'up':
+            training_class2.append(1)
+        else:
+            training_class2.append(0)
+
+    training_class = np.asarray(training_class2).astype('int8')
+
+    return training_class
+
+
 def updown_to_1_0(training, testing):
     # if it is a classification of a binary, which updown is
     training_class2 = list()
@@ -521,17 +536,20 @@ def date_and_content_class_gatherer(stocks_data, content_data):
     return content_data
 
 
-def sklearn_linear_models_classifier(training_data, training_class, models, model_params,
+def sklearn_linear_models_classifier(training_data, training_class, name, models, model_params,
                                      model_save_folders, model_names):
+    training_class = updown_to_digit(training_class)
     for model, params, save, save_name in zip(models, model_params, model_save_folders, model_names):
+        print(save)
         grid = GridSearchCV(model, params, cv=5, n_jobs=2)
         grid.fit(list(training_data),
                  training_class)
         with open('SKLEARN_MODELS/' + name + '/' + save + '/' + save_name, 'wb') as file:
             pickle.dump(grid, file)
-        with open('SKLEARN_MODELS/' + name + '/' + save + '/' + save_name, 'w+') as file:
-            file.write(grid.best_estimator_)
-            file.write(grid.best_score_)
+        with open('SKLEARN_MODELS/' + name + '/' + save + '/' + save_name + 'output.txt', 'w+') as file:
+            file.write(str(grid.best_estimator_))
+            file.write('\n')
+            file.write(str(grid.best_score_))
 
 
 if __name__ == '__main__':
@@ -630,22 +648,19 @@ if __name__ == '__main__':
     svc = SVC()
     linr = LinearRegression()
     logr = LogisticRegression()
-    models = [bnb, mnb, rf, svc, linr, logr]
-    model_names = ['bnb', 'mnb', 'rf', 'svc', 'linr', 'logr']
-    model_save_folders = ['BNB', 'MNB', 'RF', 'SVC', 'LINR', 'LOGR']
+    models = [bnb, mnb, rf, linr, logr]
+    model_names = ['bnb', 'mnb', 'rf', 'linr', 'logr']
+    model_save_folders = ['BNB', 'MNB', 'RF', 'LINR', 'LOGR']
     models_params = [{'alpha': [1.5, 2, 3, 4, 10, 100, 1.0, 0.1, 0.001, 0.0001], 'fit_prior': [True, False]},
                      {'alpha': [1.5, 2, 3, 4, 10, 100, 1.0, 0.1, 0.001, 0.0001], 'fit_prior': [True, False]},
                      {'n_estimators': [100, 1000], 'criterion': ['gini', 'entropy']},
-                     {'kernel': ['linear', 'poly', 'rbf', 'sigmoid'], 'decision_function_shape ': ['ovo', 'ovr']},
                      {'fit_intercept': [True, False], 'normalize': [True, False]},
-                     {'penalty': ['l1', 'l2', 'elasticnet', 'none'], 'dual': [True, False]}]
-
-    print(total_of_content[0])
+                     {'dual': [True, False]}]
 
     names = stocks.symbol.unique()
     for name in names:
         sklearn_linear_models_classifier(total_of_content,
-                                         total_data_tfidf[name + '_updown'],
+                                         total_data_tfidf[name + '_updown'], name,
                                          models, models_params, model_save_folders, model_names)
 
     # TSNE PLOT OF WORD2VEC similar words

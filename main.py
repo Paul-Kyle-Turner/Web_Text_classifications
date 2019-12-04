@@ -261,15 +261,15 @@ def tfidf_data_before_date(dataframe, date):
 
 
 # Does tfidf for the sklearn models
-def tfidf_data(dataframe):
-    tfidf_vector = TfidfVectorizer(stop_words='english', max_features=10000)
+def tfidf_data(dataframe, date):
+    tfidf_vector = TfidfVectorizer(stop_words='english', max_features=7500)
     train = []
     test = []
     tfidf_total_of_content = []
     giantArray = []
 
     for index, row in dataframe.iterrows():
-        if index < 18500:
+        if row['date'] < date:
             train.append(row['content'])
         else:
             test.append(row['content'])
@@ -599,7 +599,7 @@ if __name__ == '__main__':
 
     # all lines above this can be commented out if the total_data.p file exists
     total_data = pd.read_pickle('total_data.p')
-    # working_date = datetime.datetime.strptime('2019-11-15', '%Y-%m-%d').replace(tzinfo=pytz.UTC)
+    working_date = datetime.datetime.strptime('2019-11-15', '%Y-%m-%d').replace(tzinfo=pytz.UTC)
 
     # print('Dataframe split')
     # total_before, total_after = gather_data_before_and_after(total_data, working_date)
@@ -661,7 +661,7 @@ if __name__ == '__main__':
 
     # MultinomialNB, BernoulliNB, SVC, RandomForestClassifier, LinearRegression, LogisticRegression
 
-    total_data_tfidf, total_of_content = tfidf_data(total_data)
+    total_data_tfidf, total_of_content = tfidf_data(total_data, working_date)
 
     #total_data_tfidf.to_pickle('total_data_tfidf.p')
 
@@ -669,23 +669,26 @@ if __name__ == '__main__':
 
     bnb = BernoulliNB()
     mnb = MultinomialNB()
-    rf = RandomForestClassifier(n_estimators=100)
+    rf = RandomForestClassifier()
     svc = SVC()
     linr = LinearRegression()
     logr = LogisticRegression()
-    knn = KNeighborsClassifier(n_neighbors=5)
-    sc = SpectralClustering(n_neighbors=5, affinity='precomputed', n_init=100)
+    knn = KNeighborsClassifier()
+    sc = SpectralClustering()
     models = [bnb, mnb, rf, linr, logr, knn, sc]
     model_names = ['bnb', 'mnb', 'rf', 'linr', 'logr', 'knn', 'sc']
     model_save_folders = ['BNB', 'MNB', 'RF', 'LINR', 'LOGR', 'KNN', 'SC']
-    models_params = [{'alpha': [1.5, 2, 3, 4, 10, 100, 1.0, 0.1, 0.001, 0.0001], 'fit_prior': [True, False]},
-                     {'alpha': [1.5, 2, 3, 4, 10, 100, 1.0, 0.1, 0.001, 0.0001], 'fit_prior': [True, False]},
-                     {'n_estimators': [100, 1000], 'criterion': ['gini', 'entropy']},
+    models_params = [{'alpha': [2, 100, 1.0, 0.1, 0.0001], 'fit_prior': [True, False]},
+                     {'alpha': [2, 100, 1.0, 0.1, 0.0001], 'fit_prior': [True, False]},
+                     {'n_estimators': [10, 100], 'criterion': ['gini', 'entropy']},
                      {'fit_intercept': [True, False], 'normalize': [True, False]},
-                     {'dual': [True, False]}]
+                     {'dual': [True, False]},
+                     {'n_neighbors': [2, 3, 4, 5, 6], 'weights': ['uniform', 'distance']},
+                     {'n_neighbors': [2, 3, 4, 5, 6], 'n_components': [2, 3, 4, 5, 6], 'n_init': [100]}]
 
     names = stocks.symbol.unique()
     for name in names:
+        print(name)
         sklearn_linear_models_classifier(total_of_content,
                                          total_data_tfidf[name + '_updown'], name,
                                          models, models_params, model_save_folders, model_names)

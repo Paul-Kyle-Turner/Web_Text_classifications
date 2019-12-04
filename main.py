@@ -30,6 +30,8 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.cluster import SpectralClustering
 from sklearn.metrics import confusion_matrix, accuracy_score
 
 from nltk.corpus import stopwords
@@ -260,9 +262,27 @@ def tfidf_data_before_date(dataframe, date):
 
 # Does tfidf for the sklearn models
 def tfidf_data(dataframe):
-    tfidf_total_of_content = []
     tfidf_vector = TfidfVectorizer(stop_words='english', max_features=10000)
+    train = []
+    test = []
+    tfidf_total_of_content = []
 
+    for index, row in dataframe.iterrows():
+        if index < 18500:
+            train.append(row['content'])
+        else:
+            test.append(row['content'])
+
+    train_tfidf = tfidf_vector.fit_transform(train)
+    test_tfidf = tfidf_vector.transform(test)
+    train_df = pd.DataFrame(train_tfidf.todense())
+    test_df = pd.DataFrame(test_tfidf.todense())
+    #tfidf_total_of_content = pd.concat([train_df, test_df])
+    tfidf_total_of_content = train_df.append(test_df, ignore_index=True)
+    for index, row in dataframe.iterrows():
+        row['tfidf'] = tfidf_total_of_content.iloc[index] # This doesn't work/
+
+    '''
     for index, row in dataframe.iterrows():
         tfidf_vector.fit([row['content']])
 
@@ -272,7 +292,8 @@ def tfidf_data(dataframe):
         tfidf_total_of_content.append(temp2.tolist()[0])
 
     dataframe['tfidf'] = tfidf_total_of_content
-
+    '''
+    print(dataframe)
     return dataframe, tfidf_total_of_content
 
 
@@ -637,7 +658,9 @@ if __name__ == '__main__':
     # MultinomialNB, BernoulliNB, SVC, RandomForestClassifier, LinearRegression, LogisticRegression
 
     total_data_tfidf, total_of_content = tfidf_data(total_data)
-
+    print(total_data_tfidf)
+    print()
+    print(total_of_content)
     #total_data_tfidf.to_pickle('total_data_tfidf.p')
 
     #total_data_tfidf = pd.read_pickle('total_data_tfidf.p')
@@ -648,9 +671,11 @@ if __name__ == '__main__':
     svc = SVC()
     linr = LinearRegression()
     logr = LogisticRegression()
-    models = [bnb, mnb, rf, linr, logr]
-    model_names = ['bnb', 'mnb', 'rf', 'linr', 'logr']
-    model_save_folders = ['BNB', 'MNB', 'RF', 'LINR', 'LOGR']
+    knn = KNeighborsClassifier(n_neighbors=5)
+    sc = SpectralClustering(n_neighbors=5, affinity='precomputed', n_init=100)
+    models = [bnb, mnb, rf, linr, logr, knn, sc]
+    model_names = ['bnb', 'mnb', 'rf', 'linr', 'logr', 'knn', 'sc']
+    model_save_folders = ['BNB', 'MNB', 'RF', 'LINR', 'LOGR', 'KNN', 'SC']
     models_params = [{'alpha': [1.5, 2, 3, 4, 10, 100, 1.0, 0.1, 0.001, 0.0001], 'fit_prior': [True, False]},
                      {'alpha': [1.5, 2, 3, 4, 10, 100, 1.0, 0.1, 0.001, 0.0001], 'fit_prior': [True, False]},
                      {'n_estimators': [100, 1000], 'criterion': ['gini', 'entropy']},

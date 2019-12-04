@@ -266,6 +266,7 @@ def tfidf_data(dataframe):
     train = []
     test = []
     tfidf_total_of_content = []
+    giantArray = []
 
     for index, row in dataframe.iterrows():
         if index < 18500:
@@ -277,11 +278,11 @@ def tfidf_data(dataframe):
     test_tfidf = tfidf_vector.transform(test)
     train_df = pd.DataFrame(train_tfidf.todense())
     test_df = pd.DataFrame(test_tfidf.todense())
-    #tfidf_total_of_content = pd.concat([train_df, test_df])
     tfidf_total_of_content = train_df.append(test_df, ignore_index=True)
     for index, row in dataframe.iterrows():
-        row['tfidf'] = tfidf_total_of_content.iloc[index] # This doesn't work/
-
+        someArray = np.array(tfidf_total_of_content.iloc[index])
+        giantArray.append(someArray)
+    dataframe['tfidf'] = giantArray # This makes the giant dataframe.
     '''
     for index, row in dataframe.iterrows():
         tfidf_vector.fit([row['content']])

@@ -11,10 +11,7 @@ from os.path import isfile, join
 import warnings
 import pytz
 import pickle
-import gensim
-import spacy
 import nltk
-import gensim.corpora as corpora
 import en_core_web_sm
 
 from matplotlib import pyplot as plt
@@ -45,12 +42,16 @@ from gensim.parsing.preprocessing import preprocess_documents
 from gensim.utils import simple_preprocess
 from gensim.test.utils import get_tmpfile
 from gensim.models import Phrases
+from gensim.models.phrases import Phraser
 from gensim.models import Word2Vec
+import gensim.corpora as corpora	
+from gensim.models.ldamodel import LdaModel	
+from gensim.models import CoherenceModel
 
+import spacy
 
 import pyLDAvis
-import pyLDAvis.gensim  # don't skip this
-import matplotlib.pyplot as plt
+import pyLDAvis.gensim
 
 
 # python array of files by pycruft, stackoverflow
@@ -272,10 +273,9 @@ def tfidf_data_before_date(dataframe, date):
 
 # Does tfidf for the sklearn models
 def tfidf_data(dataframe, date):
-    tfidf_vector = TfidfVectorizer(stop_words='english', max_features=7500)
+    tfidf_vector = TfidfVectorizer(stop_words='english', max_features=5000)
     train = []
     test = []
-    tfidf_total_of_content = []
     giantArray = []
 
     for index, row in dataframe.iterrows():
@@ -302,7 +302,9 @@ def tfidf_data(dataframe, date):
         tfidf_total_of_content.append(temp2.tolist()[0])
     dataframe['tfidf'] = tfidf_total_of_content
     '''
-    return dataframe, tfidf_total_of_content
+    data_before, data_after = gather_data_before_and_after(dataframe, date)
+
+    return dataframe, tfidf_total_of_content, tfidf_vector, data_before, data_after
 
 
 def create_gensim_word_2_vec_model(content_list):
@@ -356,6 +358,8 @@ def updown_to_1_0(training, testing):
 
 # training and testing data is assumed to be in a list of values
 # df['content'] is the data
+# this was a modification of https://towardsdatascience.com/how-to-create-word-embedding-in-tensorflow-ed0a61507dd0	
+# author Francesco Zuppichini
 def keras_word_embedding_updown(training_data, testing_data, training_class, testing_class,
                                 embedding_dimension=None, model_ex='simple', updown=True,
                                 save_path='Models'):
@@ -585,6 +589,7 @@ def sklearn_linear_models_classifier(training_data, training_class, name, models
             file.write(str(grid.best_score_))
 
 
+# This next section of functions was mainly taken from week 9 content
 def sent_to_words(sentences):
     for sentence in sentences:
         yield simple_preprocess(str(sentence), deacc=True)
@@ -631,15 +636,15 @@ def visulaizer_of_gensim(content_list):
     texts = data_lemmatized
     corpus = [id2word.doc2bow(text) for text in texts]
 
-    lda_model = gensim.models.ldamodel.LdaModel(corpus=corpus,
-                                                id2word=id2word,
-                                                num_topics=20,
-                                                random_state=100,
-                                                update_every=1,
-                                                chunksize=100,
-                                                passes=10,
-                                                alpha='auto',
-                                                per_word_topics=True)
+    lda_model = LdaModel(corpus=corpus,
+                         id2word=id2word,
+                         num_topics=20,
+                         random_state=100,
+                         update_every=1,
+                         chunksize=100,
+                         passes=10,
+                         alpha='auto',
+                         per_word_topics=True)
 
     vis = pyLDAvis.gensim.prepare(lda_model, corpus, id2word)
 
@@ -677,10 +682,9 @@ if __name__ == '__main__':
 
     # total_before = pd.read_pickle('total_before.p')
     # total_after = pd.read_pickle('total_after.p')
-
-    """
+    
     print('NN Training')
-    #names = stocks.symbol.unique()
+    names = stocks.symbol.unique()
     for name in names:
     types = ['relu', 'simple']
     for nn_type in types:
@@ -690,7 +694,6 @@ if __name__ == '__main__':
                                             embedding_dimension=100, updown=True,
                                             model_ex=nn_type,
                                             save_path='NN_STOCKS_UPDOWN_EMBEDDED/' + name + '/' + nn_type.upper())
-    """
 
     # create a tfidf of the content_list
     # tfidf_vector, tfidf_data_before, tfidf_data_after = tfidf_data_before_date(total_data,
@@ -700,18 +703,21 @@ if __name__ == '__main__':
     # with open('tfidf_vecotr.p', 'wb') as file:
     #    pickle.dump(tfidf_vector, file)
 
-    #with open('tfidf_vecotr.p', 'rb') as file:
+    # with open('tfidf_vecotr.p', 'rb') as file:
     #    tfidf_vector = pickle.load(file)
 
     # tfidf_data_before.to_pickle('tfidf_data_before')
     # tfidf_data_after.to_pickle('tfidf_data_after')
 
-    #tfidf_data_before = pd.read_pickle('tfidf_data_before')
-    #tfidf_data_after = pd.read_pickle('tfidf_data_after')
-    #print(tfidf_data_before.head())
-    #print(tfidf_data_after.head())
+    # tfidf_data_before = pd.read_pickle('tfidf_data_before')
+    # tfidf_data_after = pd.read_pickle('tfidf_data_after')
+    # print(tfidf_data_before.head())
+    # print(tfidf_data_after.head())
 
-    """
+    total_data_tfidf, total_of_content, tfidf_vector, \	
+    tfidf_data_before, tfidf_data_after = tfidf_data(total_data, working_date)
+
+    
     print('NN Training')
     names = stocks.symbol.unique()
     for name in names:
@@ -725,7 +731,7 @@ if __name__ == '__main__':
                                 updown=True,
                                 model_ex=nn_type.lower(),
                                 save_path='NN_STOCKS_UPDOWN_TFIDF/' + name + '/' + nn_type.upper())
-    """
+    
 
     # MultinomialNB, BernoulliNB, SVC, RandomForestClassifier, LinearRegression, LogisticRegression
 
@@ -734,7 +740,7 @@ if __name__ == '__main__':
     # total_data_tfidf.to_pickle('total_data_tfidf.p')
 
     # total_data_tfidf = pd.read_pickle('total_data_tfidf.p')
-    '''
+    """
     bnb = BernoulliNB()
     mnb = MultinomialNB()
     rf = RandomForestClassifier()
@@ -746,8 +752,8 @@ if __name__ == '__main__':
     models = [bnb, mnb, rf, linr, logr, knn, sc]
     model_names = ['bnb', 'mnb', 'rf', 'linr', 'logr', 'knn']
     model_save_folders = ['BNB', 'MNB', 'RF', 'LINR', 'LOGR', 'KNN']
-    models_params = [{'alpha': [2, 100, 1.0, 0.1, 0.0001], 'fit_prior': [True, False]},
-                     {'alpha': [2, 100, 1.0, 0.1, 0.0001], 'fit_prior': [True, False]},
+    models_params = [{'alpha': [100, 1.0, 0.1], 'fit_prior': [True, False]},
+                     {'alpha': [100, 1.0, 0.1], 'fit_prior': [True, False]},
                      {'n_estimators': [10, 100], 'criterion': ['gini', 'entropy']},
                      {'fit_intercept': [True, False], 'normalize': [True, False]},
                      {'dual': [True, False]},
@@ -756,14 +762,11 @@ if __name__ == '__main__':
 
     names = stocks.symbol.unique()
     for name in names:
-        if name == 'NTDOY' or name == 'SNE' or name == 'MSFT' or name == 'TD':
-            print(name)
-            sklearn_linear_models_classifier(total_of_content,
-                                             total_data_tfidf[name + '_updown'], name,
-                                             models, models_params, model_save_folders, model_names)
-        else:
-            print(name)
-    '''
+        print(name)
+        sklearn_linear_models_classifier(total_of_content,
+                                         total_data_tfidf[name + '_updown'], name,
+                                         models, models_params, model_save_folders, model_names)
+    """
     # TSNE PLOT OF WORD2VEC similar words
     # word_to_vec_model = create_gensim_word_2_vec_model(content_list)
     # word_to_vec_model = load_gensim_word_2_vec_model('content_word2vec.p')

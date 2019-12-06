@@ -624,8 +624,8 @@ def visulaizer_of_gensim(content_list):
 
     bigram = Phrases(data_words, min_count=5, threshold=100)
     trigram = Phrases(bigram[data_words], threshold=100)
-    bigram_mod = gensim.models.phrases.Phraser(bigram)
-    trigram_mod = gensim.models.phrases.Phraser(trigram)
+    bigram_mod = Phraser(bigram)
+    trigram_mod = Phraser(trigram)
 
     data_words_nostops = remove_stopwords(data_words, stop_words)
     data_words_bigrams = make_bigrams(data_words_nostops, bigram_mod)

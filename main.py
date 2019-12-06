@@ -302,9 +302,10 @@ def tfidf_data(dataframe, date):
         tfidf_total_of_content.append(temp2.tolist()[0])
     dataframe['tfidf'] = tfidf_total_of_content
     '''
-    data_before, data_after = gather_data_before_and_after(dataframe, date)
+    # data_before, data_after = gather_data_before_and_after(dataframe, date)
 
-    return dataframe, tfidf_total_of_content, tfidf_vector, data_before, data_after
+    return dataframe, tfidf_total_of_content
+    #, tfidf_vector, data_before, data_after
 
 
 def create_gensim_word_2_vec_model(content_list):
@@ -574,13 +575,12 @@ def sklearn_linear_models_classifier(training_data, training_class, name, models
     training_class = updown_to_digit(training_class)
     for model, params, save, save_name in zip(models, model_params, model_save_folders, model_names):
         print(save)
-        grid = GridSearchCV(model, params, cv=5, n_jobs=2)
+        grid = GridSearchCV(model, params, cv=5, n_jobs=2, scoring='accuracy')
         giantArray = []
         for index, row in training_data.iterrows():
             someArray = np.array(training_data.iloc[index])
             giantArray.append(someArray)
-        grid.fit(giantArray,
-                 training_class)
+        grid.fit(giantArray, training_class)
         with open('SKLEARN_MODELS/' + name + '/' + save + '/' + save_name, 'wb') as file:
             pickle.dump(grid, file)
         with open('SKLEARN_MODELS/' + name + '/' + save + '/' + save_name + 'output.txt', 'w+') as file:
@@ -682,7 +682,8 @@ if __name__ == '__main__':
 
     # total_before = pd.read_pickle('total_before.p')
     # total_after = pd.read_pickle('total_after.p')
-    
+
+    '''
     print('NN Training')
     names = stocks.symbol.unique()
     for name in names:
@@ -694,6 +695,7 @@ if __name__ == '__main__':
                                             embedding_dimension=100, updown=True,
                                             model_ex=nn_type,
                                             save_path='NN_STOCKS_UPDOWN_EMBEDDED/' + name + '/' + nn_type.upper())
+    '''
 
     # create a tfidf of the content_list
     # tfidf_vector, tfidf_data_before, tfidf_data_after = tfidf_data_before_date(total_data,
@@ -713,7 +715,7 @@ if __name__ == '__main__':
     # tfidf_data_after = pd.read_pickle('tfidf_data_after')
     # print(tfidf_data_before.head())
     # print(tfidf_data_after.head())
-
+    '''
     total_data_tfidf, total_of_content, tfidf_vector, \	
     tfidf_data_before, tfidf_data_after = tfidf_data(total_data, working_date)
 
@@ -731,16 +733,16 @@ if __name__ == '__main__':
                                 updown=True,
                                 model_ex=nn_type.lower(),
                                 save_path='NN_STOCKS_UPDOWN_TFIDF/' + name + '/' + nn_type.upper())
-    
+    '''
 
     # MultinomialNB, BernoulliNB, SVC, RandomForestClassifier, LinearRegression, LogisticRegression
 
-    # total_data_tfidf, total_of_content = tfidf_data(total_data, working_date)
+    total_data_tfidf, total_of_content = tfidf_data(total_data, working_date)
 
     # total_data_tfidf.to_pickle('total_data_tfidf.p')
 
     # total_data_tfidf = pd.read_pickle('total_data_tfidf.p')
-    """
+
     bnb = BernoulliNB()
     mnb = MultinomialNB()
     rf = RandomForestClassifier()
@@ -749,16 +751,16 @@ if __name__ == '__main__':
     logr = LogisticRegression()
     knn = KNeighborsClassifier()
     sc = SpectralClustering()
-    models = [bnb, mnb, rf, linr, logr, knn, sc]
-    model_names = ['bnb', 'mnb', 'rf', 'linr', 'logr', 'knn']
-    model_save_folders = ['BNB', 'MNB', 'RF', 'LINR', 'LOGR', 'KNN']
-    models_params = [{'alpha': [100, 1.0, 0.1], 'fit_prior': [True, False]},
+    models = [sc, bnb, mnb, rf, linr, logr, knn, sc]
+    model_names = ['sc', 'bnb', 'mnb', 'rf', 'linr', 'logr', 'knn']
+    model_save_folders = ['SC', 'BNB', 'MNB', 'RF', 'LINR', 'LOGR', 'KNN']
+    models_params = [{'n_clusters': [2, 3, 4, 5, 6], 'n_init': [100]},
+                     {'alpha': [100, 1.0, 0.1], 'fit_prior': [True, False]},
                      {'alpha': [100, 1.0, 0.1], 'fit_prior': [True, False]},
                      {'n_estimators': [10, 100], 'criterion': ['gini', 'entropy']},
                      {'fit_intercept': [True, False], 'normalize': [True, False]},
                      {'dual': [True, False]},
-                     {'n_neighbors': [2, 3, 4, 5, 6], 'weights': ['uniform', 'distance']},
-                     {'n_neighbors': [2, 3, 4, 5, 6], 'n_components': [2, 3, 4, 5, 6], 'n_init': [100]}]
+                     {'n_neighbors': [2, 3, 4, 5, 6], 'weights': ['uniform', 'distance']}]
 
     names = stocks.symbol.unique()
     for name in names:
@@ -766,12 +768,12 @@ if __name__ == '__main__':
         sklearn_linear_models_classifier(total_of_content,
                                          total_data_tfidf[name + '_updown'], name,
                                          models, models_params, model_save_folders, model_names)
-    """
+
     # TSNE PLOT OF WORD2VEC similar words
     # word_to_vec_model = create_gensim_word_2_vec_model(content_list)
     # word_to_vec_model = load_gensim_word_2_vec_model('content_word2vec.p')
     # tsne_plot(word_to_vec_model, 'sony', 50, 20)
 
     # LDA topic model
-    vis = visulaizer_of_gensim(content_list=content_list)
-    pyLDAvis.show(vis)
+    # vis = visulaizer_of_gensim(content_list=content_list)
+    # pyLDAvis.save_html(vis, 'test.html')

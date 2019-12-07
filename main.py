@@ -37,7 +37,6 @@ from sklearn.cluster import SpectralClustering
 from sklearn.metrics import confusion_matrix, accuracy_score
 
 from nltk.corpus import stopwords
-from gensim.parsing.preprocessing import remove_stopwords
 from gensim.parsing.preprocessing import preprocess_documents
 from gensim.utils import simple_preprocess
 from gensim.test.utils import get_tmpfile
@@ -272,11 +271,11 @@ def tfidf_data_before_date(dataframe, date):
 
 
 # Does tfidf for the sklearn models
-def tfidf_data(dataframe, date):
+def tfidf_data(dataframe, date, full_return=True):
     tfidf_vector = TfidfVectorizer(stop_words='english', max_features=5000)
     train = []
     test = []
-    giantArray = []
+    tfidf_total_from_dataframe = []
 
     for index, row in dataframe.iterrows():
         if row['date'] < date:
@@ -290,9 +289,9 @@ def tfidf_data(dataframe, date):
     test_df = pd.DataFrame(test_tfidf.todense())
     tfidf_total_of_content = train_df.append(test_df, ignore_index=True)
     for index, row in dataframe.iterrows():
-        someArray = np.array(tfidf_total_of_content.iloc[index])
-        giantArray.append(someArray)
-    dataframe['tfidf'] = giantArray # This makes the giant dataframe.
+        tfidf_slive_of_content = np.array(tfidf_total_of_content.iloc[index])
+        tfidf_total_from_dataframe.append(tfidf_slive_of_content)
+    dataframe['tfidf'] = tfidf_total_from_dataframe  # The creates a tfidf col with numpy array vectors
     '''
     for index, row in dataframe.iterrows():
         tfidf_vector.fit([row['content']])
@@ -302,10 +301,12 @@ def tfidf_data(dataframe, date):
         tfidf_total_of_content.append(temp2.tolist()[0])
     dataframe['tfidf'] = tfidf_total_of_content
     '''
-    # data_before, data_after = gather_data_before_and_after(dataframe, date)
 
-    return dataframe, tfidf_total_of_content
-    #, tfidf_vector, data_before, data_after
+    if full_return:
+        data_before, data_after = gather_data_before_and_after(dataframe, date)
+        return dataframe, tfidf_total_of_content, tfidf_vector, data_before, data_after
+    else:
+        return dataframe, tfidf_total_of_content, tfidf_vector, None, None
 
 
 def create_gensim_word_2_vec_model(content_list):
@@ -576,11 +577,11 @@ def sklearn_linear_models_classifier(training_data, training_class, name, models
     for model, params, save, save_name in zip(models, model_params, model_save_folders, model_names):
         print(save)
         grid = GridSearchCV(model, params, cv=5, n_jobs=2, scoring='accuracy')
-        giantArray = []
+        vector_total_content = []
         for index, row in training_data.iterrows():
-            someArray = np.array(training_data.iloc[index])
-            giantArray.append(someArray)
-        grid.fit(giantArray, training_class)
+            vector_slice_of_content = np.array(training_data.iloc[index])
+            vector_total_content.append(vector_slice_of_content)
+        grid.fit(vector_total_content, training_class)
         with open('SKLEARN_MODELS/' + name + '/' + save + '/' + save_name, 'wb') as file:
             pickle.dump(grid, file)
         with open('SKLEARN_MODELS/' + name + '/' + save + '/' + save_name + 'output.txt', 'w+') as file:
@@ -657,7 +658,7 @@ if __name__ == '__main__':
     # where content is title, description, content.
     # There exist data which the query is None, this data was collected with the use of an old version of searchthenews
     # This can be used for another Y_test set for determining which class of news it was pulled from
-    query_list, dates_list, content_list = gather_news_content('news.db')
+    #query_list, dates_list, content_list = gather_news_content('news.db')
     # content_dataframe = pd.DataFrame([query_list, dates_list, content_list]).transpose()
     # content_dataframe.columns = ['query', 'date', 'content']
 
@@ -687,14 +688,14 @@ if __name__ == '__main__':
     print('NN Training')
     names = stocks.symbol.unique()
     for name in names:
-    types = ['relu', 'simple']
-    for nn_type in types:
-        model = keras_word_embedding_updown(total_before['content'].tolist(), total_after['content'].tolist(),
-                                            np.asarray(total_before[name + '_updown'].tolist()),
-                                            np.asarray(total_after[name + '_updown'].tolist()),
-                                            embedding_dimension=100, updown=True,
-                                            model_ex=nn_type,
-                                            save_path='NN_STOCKS_UPDOWN_EMBEDDED/' + name + '/' + nn_type.upper())
+        types = ['relu', 'simple']
+        for nn_type in types:
+            model = keras_word_embedding_updown(total_before['content'].tolist(), total_after['content'].tolist(),
+                                                np.asarray(total_before[name + '_updown'].tolist()),
+                                                np.asarray(total_after[name + '_updown'].tolist()),
+                                                embedding_dimension=100, updown=True,
+                                                model_ex=nn_type,
+                                                save_path='NN_STOCKS_UPDOWN_EMBEDDED/' + name + '/' + nn_type.upper())
     '''
 
     # create a tfidf of the content_list
@@ -716,8 +717,7 @@ if __name__ == '__main__':
     # print(tfidf_data_before.head())
     # print(tfidf_data_after.head())
     '''
-    total_data_tfidf, total_of_content, tfidf_vector, \	
-    tfidf_data_before, tfidf_data_after = tfidf_data(total_data, working_date)
+    
 
     
     print('NN Training')
@@ -737,7 +737,8 @@ if __name__ == '__main__':
 
     # MultinomialNB, BernoulliNB, SVC, RandomForestClassifier, LinearRegression, LogisticRegression
 
-    total_data_tfidf, total_of_content = tfidf_data(total_data, working_date)
+    total_data, tfidf_total_of_content, tfidf_vector,\
+    data_before, data_after = tfidf_data(total_data, working_date, full_return=False)
 
     # total_data_tfidf.to_pickle('total_data_tfidf.p')
 
@@ -751,7 +752,8 @@ if __name__ == '__main__':
     logr = LogisticRegression()
     knn = KNeighborsClassifier()
     sc = SpectralClustering()
-    models = [sc, bnb, mnb, rf, linr, logr, knn, sc]
+    """
+    models = [sc, bnb, mnb, rf, linr, logr, knn]
     model_names = ['sc', 'bnb', 'mnb', 'rf', 'linr', 'logr', 'knn']
     model_save_folders = ['SC', 'BNB', 'MNB', 'RF', 'LINR', 'LOGR', 'KNN']
     models_params = [{'n_clusters': [2, 3, 4, 5, 6], 'n_init': [100]},
@@ -761,12 +763,18 @@ if __name__ == '__main__':
                      {'fit_intercept': [True, False], 'normalize': [True, False]},
                      {'dual': [True, False]},
                      {'n_neighbors': [2, 3, 4, 5, 6], 'weights': ['uniform', 'distance']}]
+    """
+    models = [svc, sc]
+    model_names = ['svc', 'sc']
+    model_save_folders = ['SVC', 'SC']
+    models_params = [{'C': [.01, 1.0], 'gamma': ['scale'], 'verbose': [True]},
+                     {'n_clusters': [2, 3, 4, 5, 6], 'n_init': [100]}]
 
     names = stocks.symbol.unique()
     for name in names:
         print(name)
-        sklearn_linear_models_classifier(total_of_content,
-                                         total_data_tfidf[name + '_updown'], name,
+        sklearn_linear_models_classifier(tfidf_total_of_content,
+                                         total_data[name + '_updown'], name,
                                          models, models_params, model_save_folders, model_names)
 
     # TSNE PLOT OF WORD2VEC similar words

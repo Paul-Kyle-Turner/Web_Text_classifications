@@ -55,34 +55,40 @@ for stock in stocks:
     plt.clf()
 '''
 
-stocks = ('AAPL', 'AMD', 'AMZN', 'GME', 'GOOGL', 'HPQ', 'JPM', 'LYFT', 'MSFT', 'NTDOY', 'NVDA', 'SNE', 'TD', 'UBER')
-models = ('RELU', 'SIMPLE')
-performance = []
 
-for modeltype in models:
-    y_pos = np.arange(len(stocks))
-    for stock in stocks:
-        model = tf.keras.models.load_model('NN_STOCKS_UPDOWN_EMBEDDED/' + str(stock) + '/' + str(modeltype))
-        #model.summary()
-        tokens = Tokenizer()
-        total_after = pd.read_pickle('total_after.p')
-        testing_data = total_after['content'].tolist()
-        total_text = testing_data
-        tokens.fit_on_texts(total_text)
-        max_token_length = max([len(strings.split()) for strings in total_text])
-        testing_data_tokens = tokens.texts_to_sequences(testing_data)
-        testing_data_tokens_pad = pad_sequences(testing_data_tokens, maxlen=max_token_length, padding='post')
-        testing_class = np.asarray(total_after[stock + '_updown'].tolist())
-        testing_class = updown_to_1_0(testing_class)
-        loss, acc = model.evaluate(testing_data_tokens_pad,  testing_class, verbose=2)
-        performance.append(100*acc)
+if __name__ == '__main__':
 
-    plt.figure(figsize=(10, 5))
-    plt.bar(y_pos, performance, align='center', alpha=1)
-    axes = plt.gca()
-    axes.set_ylim([0, 100])
-    plt.xticks(y_pos, stocks)
-    plt.ylabel('Percent Accuracy')
-    plt.title('Tested models for ' + modeltype)
-    plt.savefig(str(modeltype) + '.png')
-    plt.clf()
+
+    stocks = ('AAPL', 'AMD', 'AMZN', 'GME', 'GOOGL', 'HPQ', 'JPM', 'LYFT', 'MSFT', 'NTDOY', 'NVDA', 'SNE', 'TD', 'UBER')
+    models = ('RELU', 'SIMPLE')
+
+    for modeltype in models:
+        performance = []
+        y_pos = np.arange(len(stocks))
+        for stock in stocks:
+            model = tf.keras.models.load_model('NN_STOCKS_UPDOWN_TFIDF/' + str(stock) + '/' + str(modeltype))
+            #model.summary()
+            tokens = Tokenizer()
+            total_after = pd.read_pickle('after_data_tdidf.p')
+            testing_data = total_after['tfidf'].tolist()
+            #total_text = testing_data
+            #tokens.fit_on_texts(total_text)
+            #max_token_length = max([len(strings.split()) for strings in total_text])
+            #testing_data_tokens = tokens.texts_to_sequences(testing_data)
+            #testing_data_tokens_pad = pad_sequences(testing_data_tokens, maxlen=max_token_length, padding='post')
+            testing_class = np.asarray(total_after[stock + '_updown'].tolist())
+            testing_class = updown_to_1_0(testing_class)
+            loss, acc = model.evaluate(np.asarray(testing_data),  testing_class, verbose=2)
+            performance.append(100*acc)
+
+        print(performance)
+        print(y_pos)
+        plt.figure(figsize=(10, 5))
+        plt.bar(y_pos, performance, align='center', alpha=1)
+        axes = plt.gca()
+        axes.set_ylim([0, 100])
+        plt.xticks(y_pos, stocks)
+        plt.ylabel('Percent Accuracy')
+        plt.title('Tested models for ' + modeltype)
+        plt.savefig(str(modeltype) + 'TFIDF' + '.png')
+        plt.clf()

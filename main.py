@@ -576,7 +576,7 @@ def sklearn_linear_models_classifier(training_data, training_class, name, models
     training_class = updown_to_digit(training_class)
     for model, params, save, save_name in zip(models, model_params, model_save_folders, model_names):
         print(save)
-        grid = GridSearchCV(model, params, cv=5, n_jobs=2, scoring='accuracy')
+        grid = GridSearchCV(model, params, cv=5, n_jobs=3, scoring='accuracy')
         vector_total_content = []
         for index, row in training_data.iterrows():
             vector_slice_of_content = np.array(training_data.iloc[index])
@@ -658,7 +658,7 @@ if __name__ == '__main__':
     # where content is title, description, content.
     # There exist data which the query is None, this data was collected with the use of an old version of searchthenews
     # This can be used for another Y_test set for determining which class of news it was pulled from
-    #query_list, dates_list, content_list = gather_news_content('news.db')
+    # query_list, dates_list, content_list = gather_news_content('news.db')
     # content_dataframe = pd.DataFrame([query_list, dates_list, content_list]).transpose()
     # content_dataframe.columns = ['query', 'date', 'content']
 
@@ -716,10 +716,8 @@ if __name__ == '__main__':
     # tfidf_data_after = pd.read_pickle('tfidf_data_after')
     # print(tfidf_data_before.head())
     # print(tfidf_data_after.head())
-    '''
-    
 
-    
+    '''
     print('NN Training')
     names = stocks.symbol.unique()
     for name in names:
@@ -738,7 +736,7 @@ if __name__ == '__main__':
     # MultinomialNB, BernoulliNB, SVC, RandomForestClassifier, LinearRegression, LogisticRegression
 
     total_data, tfidf_total_of_content, tfidf_vector,\
-    data_before, data_after = tfidf_data(total_data, working_date, full_return=False)
+        data_before, data_after = tfidf_data(total_data, working_date, full_return=False)
 
     # total_data_tfidf.to_pickle('total_data_tfidf.p')
 
@@ -747,11 +745,12 @@ if __name__ == '__main__':
     bnb = BernoulliNB()
     mnb = MultinomialNB()
     rf = RandomForestClassifier()
-    svc = SVC()
+    svc = SVC(gamma='scale')
     linr = LinearRegression()
     logr = LogisticRegression()
     knn = KNeighborsClassifier()
     sc = SpectralClustering()
+
     """
     models = [sc, bnb, mnb, rf, linr, logr, knn]
     model_names = ['sc', 'bnb', 'mnb', 'rf', 'linr', 'logr', 'knn']
@@ -764,18 +763,21 @@ if __name__ == '__main__':
                      {'dual': [True, False]},
                      {'n_neighbors': [2, 3, 4, 5, 6], 'weights': ['uniform', 'distance']}]
     """
-    models = [svc, sc]
-    model_names = ['svc', 'sc']
-    model_save_folders = ['SVC', 'SC']
-    models_params = [{'C': [.01, 1.0], 'gamma': ['scale'], 'verbose': [True]},
-                     {'n_clusters': [2, 3, 4, 5, 6], 'n_init': [100]}]
+
+    models = [svc]
+    model_names = ['svc']
+    model_save_folders = ['SVC']
+    models_params = [{'C': [1.0], 'gamma': ['scale'], 'verbose': [True]}]
 
     names = stocks.symbol.unique()
     for name in names:
-        print(name)
-        sklearn_linear_models_classifier(tfidf_total_of_content,
-                                         total_data[name + '_updown'], name,
-                                         models, models_params, model_save_folders, model_names)
+        if name == 'TD' or name == 'SNE' or name == 'UBER':
+            print(name)
+            sklearn_linear_models_classifier(tfidf_total_of_content,
+                                             total_data[name + '_updown'], name,
+                                             models, models_params, model_save_folders, model_names)
+        else:
+            continue
 
     # TSNE PLOT OF WORD2VEC similar words
     # word_to_vec_model = create_gensim_word_2_vec_model(content_list)
@@ -785,3 +787,6 @@ if __name__ == '__main__':
     # LDA topic model
     # vis = visulaizer_of_gensim(content_list=content_list)
     # pyLDAvis.save_html(vis, 'test.html')
+
+    # {'n_clusters': [2, 3, 4, 5, 6], 'n_init': [10]},
+
